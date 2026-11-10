@@ -15,6 +15,7 @@
 #define HALF_FOV_TAN 0.7673f /* ~75 degree horizontal FOV */
 static const float proj = (SCREENW / 2) / HALF_FOV_TAN;
 static float zbuf[SCREENW];
+static uint8_t seen[MAPH][MAPW]; /* automap memory: tiles our rays have hit (render-side only) */
 
 static float fx(fixed_t v) { return v / 65536.0f; }
 
@@ -81,6 +82,7 @@ static void cast_walls(uint8_t *fb, float px, float py, float dx, float dy, floa
             if (mx < 0 || my < 0 || mx >= MAPW || my >= MAPH) break;
             int tl = g.tile[my][mx];
             if (tl == TL_EMPTY) continue;
+            seen[my][mx] = 1;
             if (tl == TL_DOOR) {
                 const door_t *d = &g.doors[g.doorat[my][mx]];
                 float t, along;
@@ -212,6 +214,13 @@ static void draw_psprite(uint8_t *fb)
 
 void r_render_view(uint8_t *fb, float extra_turn)
 {
+    static char lastname[32];
+    static int32_t lasttime;
+    if (g.leveltime < lasttime || strcmp(lastname, g.levelname)) { /* new level or reload: forget the map */
+        memset(seen, 0, sizeof seen);
+        memcpy(lastname, g.levelname, sizeof lastname);
+    }
+    lasttime = g.leveltime;
     const player_t *p = &g.player;
     float px = fx(p->x), py = fx(p->y);
     float ang = (float)p->angle * (6.2831853f / 4294967296.0f) + extra_turn;
@@ -290,4 +299,38 @@ void r_frame_palette(uint8_t out[256 * 3])
 void r_dim(uint8_t *fb, int level)
 {
     for (int i = 0; i < SCREENW * SCREENH; i++) fb[i] = colormap[level][fb[i]];
+}
+
+void r_draw_automap(uint8_t *fb)
+{
+    const int sc = 4;
+    const player_t *p = &g.player;
+    int ox = SCREENW / 2 - p->x * sc / FRACUNIT, oy = VIEWH / 2 - p->y * sc / FRACUNIT;
+    memset(fb, RAMP(R_GRAY, 0), SCREENW * VIEWH);
+    static const int lockramp[4] = {R_STEEL, R_RED, R_BLUE, R_YELLOW};
+    for (int ty = 0; ty < g.h; ty++)
+        for (int tx = 0; tx < g.w; tx++) {
+            if (!seen[ty][tx]) continue;
+            int t = g.tile[ty][tx];
+            uint8_t c = t == TL_DOOR ? RAMP(lockramp[g.doors[g.doorat[ty][tx]].lock], 12)
+                        : t == TL_EXIT ? RAMP(R_GREEN, 13)
+                        : t == TL_EMPTY ? RAMP(R_GRAY, 3) /* a pushwall that moved away */
+                                        : RAMP(R_GRAY, 9);
+            for (int y = 0; y < sc; y++)
+                for (int x = 0; x < sc; x++) {
+                    int px = ox + tx * sc + x, py = oy + ty * sc + y;
+                    if (px >= 0 && py >= 0 && px < SCREENW && py < VIEWH) fb[py * SCREENW + px] = c;
+                }
+        }
+    float a = (float)p->angle * (6.2831853f / 4294967296.0f);
+    for (int i = -2; i <= 7; i++) { /* player arrow */
+        int px = SCREENW / 2 + (int)lrintf(cosf(a) * i), py = VIEWH / 2 + (int)lrintf(sinf(a) * i);
+        if (px >= 0 && py >= 0 && px < SCREENW && py < VIEWH) fb[py * SCREENW + px] = RAMP(R_YELLOW, 14);
+    }
+    font_draw(fb, 4, 4, g.levelname, RAMP(R_GRAY, 13), 1, 1);
+    char s[64];
+    int secs = g.leveltime / TICRATE;
+    snprintf(s, sizeof s, "K %d/%d  I %d/%d  S %d/%d  %d:%02d", g.kills, g.totalkills, g.items, g.totalitems, g.secrets,
+             g.totalsecrets, secs / 60, secs % 60);
+    font_draw(fb, 4, VIEWH - 12, s, RAMP(R_GRAY, 11), 1, 1);
 }

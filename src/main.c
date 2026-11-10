@@ -26,6 +26,7 @@ static int mode = GM_TITLE;
 static player_t carry;   /* inventory at the start of the current level, for retries */
 static int mouse_acc;     /* mouse x motion not yet consumed by a tic */
 static int fade;          /* intermission/menus: tics in this screen */
+static int automap;
 
 /* demo recording / playback */
 #define MAXDEMO (TICRATE * 60 * 60)
@@ -141,6 +142,13 @@ static void play_music(const char *path)
     snd_music(music_text);
 }
 
+static void play_level_music(void)
+{
+    char path[64];
+    snprintf(path, sizeof path, "assets/music/%s", g.music[0] ? g.music : "e1.txt");
+    play_music(path);
+}
+
 static bool start_level(int num, int skill, const player_t *inv)
 {
     char *text;
@@ -157,15 +165,104 @@ static bool start_level(int num, int skill, const player_t *inv)
     carry = g.player;
     mode = GM_LEVEL;
     mouse_acc = 0;
-    char path[64];
-    snprintf(path, sizeof path, "assets/music/%s", g.music[0] ? g.music : "e1.txt");
-    play_music(path);
+    play_level_music();
     return true;
 }
 
 /* ---------------------------------------------------------------- menus */
 
-enum { M_NONE, M_MAIN, M_SKILL, M_OPTIONS, M_CONTROLS, M_QUIT };
+enum { M_NONE, M_MAIN, M_SKILL, M_OPTIONS, M_CONTROLS, M_QUIT, M_SAVE, M_LOAD };
+enum { MI_RESUME, MI_NEW, MI_SAVE, MI_LOAD, MI_OPTIONS, MI_QUIT };
+static const char *main_names[] = {"RESUME", "NEW GAME", "SAVE GAME", "LOAD GAME", "OPTIONS", "QUIT GAME"};
+
+/* main menu entries depend on whether a game is running */
+static int main_items(int *ids)
+{
+    int n = 0;
+    if (mode == GM_LEVEL) ids[n++] = MI_RESUME;
+    ids[n++] = MI_NEW;
+    if (mode == GM_LEVEL && !g.player.dead) ids[n++] = MI_SAVE;
+    ids[n++] = MI_LOAD;
+    ids[n++] = MI_OPTIONS;
+    ids[n++] = MI_QUIT;
+    return n;
+}
+
+/* ---------------------------------------------------------------- save games: a header plus the raw game state */
+
+#define NSLOTS 6
+#define SAVE_MAGIC "IRONHOLD-SAVE-1"
+typedef struct {
+    char magic[16];
+    char name[40];
+    int32_t size; /* sizeof(game_t): rejects saves from a different build layout */
+    player_t carry;
+} savehdr_t;
+
+static void slot_file(int slot, char *buf, size_t n) { snprintf(buf, n, "save%d.sav", slot); }
+
+static const char *slot_file_path(int slot)
+{
+    static char path[32];
+    slot_file(slot, path, sizeof path);
+    return path;
+}
+
+static void slot_name(int slot, char *out, size_t n)
+{
+    char path[32];
+    void *data;
+    slot_file(slot, path, sizeof path);
+    long len = plat_read_file(path, &data);
+    snprintf(out, n, "- EMPTY -");
+    if (len < 0) return;
+    const savehdr_t *h = data;
+    if (len == (long)(sizeof *h + sizeof g) && !memcmp(h->magic, SAVE_MAGIC, sizeof SAVE_MAGIC) && h->size == (int32_t)sizeof g)
+        snprintf(out, n, "%.39s", h->name);
+    else
+        snprintf(out, n, "- INCOMPATIBLE -");
+    free(data);
+}
+
+static bool load_game(int slot)
+{
+    void *data;
+    long len = plat_read_file(slot_file_path(slot), &data);
+    if (len < 0) return false;
+    const savehdr_t *h = data;
+    bool ok = len == (long)(sizeof *h + sizeof g) && !memcmp(h->magic, SAVE_MAGIC, sizeof SAVE_MAGIC) &&
+              h->size == (int32_t)sizeof g;
+    if (ok) {
+        static game_t tmp; /* validate before touching the live game */
+        memcpy(&tmp, (const uint8_t *)data + sizeof *h, sizeof tmp);
+        game_t live = g;
+        g = tmp;
+        ok = g_validate();
+        if (ok) {
+            carry = h->carry;
+            mode = GM_LEVEL;
+            mouse_acc = 0;
+            play_level_music();
+        } else
+            g = live;
+    }
+    free(data);
+    return ok;
+}
+
+static bool save_game(int slot)
+{
+    static uint8_t buf[sizeof(savehdr_t) + sizeof(game_t)];
+    savehdr_t h = {0};
+    memcpy(h.magic, SAVE_MAGIC, sizeof SAVE_MAGIC);
+    int secs = g.leveltime / TICRATE;
+    snprintf(h.name, sizeof h.name, "E1M%d %.16s %d:%02d", (g.levelnum + 1) % 10, g.levelname, secs / 60 % 1000, secs % 60);
+    h.size = (int32_t)sizeof g;
+    h.carry = carry;
+    memcpy(buf, &h, sizeof h);
+    memcpy(buf + sizeof h, &g, sizeof g);
+    return plat_write_file(slot_file_path(slot), buf, sizeof buf);
+}
 static int menu = M_NONE, sel, waiting_bind = -1;
 static int menu_stack[8], menu_depth;
 
@@ -185,7 +282,11 @@ static void close_menu(void)
 static int menu_count(void)
 {
     switch (menu) {
-    case M_MAIN: return mode == GM_LEVEL ? 4 : 3;
+    case M_MAIN: {
+        int ids[8];
+        return main_items(ids);
+    }
+    case M_SAVE: case M_LOAD: return NSLOTS;
     case M_SKILL: return SK_COUNT;
     case M_OPTIONS: return 5;
     case M_CONTROLS: return A_COUNT + 1;
@@ -195,17 +296,38 @@ static int menu_count(void)
 
 static void menu_activate(int dir)
 {
-    bool ingame = mode == GM_LEVEL;
     switch (menu) {
     case M_MAIN: {
-        int item = ingame ? sel : sel + 1; /* item 0 = RESUME only in game */
+        int ids[8];
+        main_items(ids);
         if (dir) return;
-        if (item == 0) close_menu();
-        else if (item == 1) open_menu(M_SKILL);
-        else if (item == 2) open_menu(M_OPTIONS);
-        else open_menu(M_QUIT);
+        switch (ids[sel]) {
+        case MI_RESUME: close_menu(); break;
+        case MI_NEW: open_menu(M_SKILL); break;
+        case MI_SAVE: open_menu(M_SAVE); break;
+        case MI_LOAD: open_menu(M_LOAD); break;
+        case MI_OPTIONS: open_menu(M_OPTIONS); break;
+        default: open_menu(M_QUIT); break;
+        }
         break;
     }
+    case M_SAVE:
+        if (dir) return;
+        if (save_game(sel)) {
+            snprintf(g.msg, sizeof g.msg, "GAME SAVED");
+            g.msgtics = TICRATE * 2;
+        }
+        menu = M_NONE;
+        menu_depth = 0;
+        break;
+    case M_LOAD:
+        if (dir) return;
+        if (load_game(sel)) {
+            menu = M_NONE;
+            menu_depth = 0;
+        } else
+            snd_play(SFX_NOWAY, 200, 128);
+        break;
     case M_SKILL:
         if (dir) return;
         menu = M_NONE;
@@ -277,15 +399,27 @@ static void draw_menu(void)
 {
     if (menu == M_NONE) return;
     r_dim(fb, 26);
-    static const char *main_items[] = {"RESUME", "NEW GAME", "OPTIONS", "QUIT GAME"};
     static const char *skills[] = {"RECRUIT", "SOLDIER", "VETERAN"};
     static const char *opts[] = {"MOUSE SPEED", "SFX VOLUME", "MUSIC VOLUME", "CONTROLS", "BACK"};
     const char *title = "", *items[A_COUNT + 1];
-    int n = menu_count(), base = 0;
+    int n = menu_count();
     switch (menu) {
-    case M_MAIN: title = "IRONHOLD"; base = mode == GM_LEVEL ? 0 : 1;
-        for (int i = 0; i < n; i++) items[i] = main_items[i + base];
+    case M_MAIN: {
+        int ids[8];
+        title = "IRONHOLD";
+        main_items(ids);
+        for (int i = 0; i < n; i++) items[i] = main_names[ids[i]];
         break;
+    }
+    case M_SAVE: case M_LOAD: {
+        static char names[NSLOTS][48];
+        title = menu == M_SAVE ? "SAVE GAME" : "LOAD GAME";
+        for (int i = 0; i < n; i++) {
+            slot_name(i, names[i], sizeof names[i]);
+            items[i] = names[i];
+        }
+        break;
+    }
     case M_SKILL: title = "CHOOSE YOUR FATE";
         for (int i = 0; i < n; i++) items[i] = skills[i];
         break;
@@ -302,7 +436,7 @@ static void draw_menu(void)
         return;
     }
     font_draw_center(fb, 30, title, RAMP(R_RED, 13), 3);
-    int small = menu == M_CONTROLS, lh = small ? 12 : 18, y0 = small ? 64 : 80;
+    int small = menu == M_CONTROLS || menu == M_SAVE || menu == M_LOAD, lh = small ? 14 : 18, y0 = small ? 64 : 70;
     for (int i = 0; i < n; i++) {
         int y = y0 + i * lh, x = menu == M_OPTIONS || small ? 50 : (SCREENW - font_width(items[i], 2)) / 2;
         uint8_t c = i == sel ? RAMP(R_YELLOW, 14) : RAMP(R_GRAY, 11);
@@ -310,13 +444,13 @@ static void draw_menu(void)
         else font_draw(fb, x, y, items[i], c, 2, 1);
         if (i == sel) font_draw(fb, x - 14, y, ">", RAMP(R_RED, 13), small ? 1 : 2, 1);
         if (menu == M_OPTIONS && i < 3) slider(200, y + 3, i == 0 ? sens : i == 1 ? sfxvol : musvol, i == 0 ? 20 : 15);
-        if (small && i < A_COUNT) {
+        if (menu == M_CONTROLS && i < A_COUNT) {
             char s[32];
             snprintf(s, sizeof s, "%s  %s", key_name(binds[i][0]), key_name(binds[i][1]));
             font_draw(fb, 180, y, waiting_bind == i ? "PRESS A KEY..." : s, waiting_bind == i ? RAMP(R_RED, 13) : c, 1, 1);
         }
     }
-    if (small) font_draw_center(fb, 200, "ENTER: BIND  ESC: BACK", RAMP(R_GRAY, 9), 1);
+    if (menu == M_CONTROLS) font_draw_center(fb, 200, "ENTER: BIND  ESC: BACK", RAMP(R_GRAY, 9), 1);
 }
 
 /* ---------------------------------------------------------------- screens */
@@ -515,6 +649,7 @@ int main(int argc, char **argv)
                     open_menu(M_MAIN);
                     break;
                 }
+                if (in.pressed[PK_TAB]) automap = !automap;
                 for (int i = 0; i < todo && mode == GM_LEVEL; i++) game_tic();
                 break;
             case GM_INTER:
@@ -540,6 +675,7 @@ int main(int argc, char **argv)
         if (mode == GM_LEVEL) {
             float extra = mouse_acc * sens * 6 * 65536.0f * (6.2831853f / 4294967296.0f);
             r_render_view(fb, menu == M_NONE ? extra : 0);
+            if (automap) r_draw_automap(fb);
             r_draw_hud(fb);
             if (g.player.dead && g.player.deadtics > TICRATE) font_draw_center(fb, 90, "PRESS USE TO TRY AGAIN", RAMP(R_GRAY, 14), 1);
             r_frame_palette(pal);

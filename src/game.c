@@ -1287,6 +1287,35 @@ void g_ticker(const ticcmd_t *cmd)
     if (g.exiting > 0) g.exiting++;
 }
 
+bool g_validate(void)
+{
+    if (g.w < 1 || g.h < 1 || g.w > MAPW || g.h > MAPH || g.ndoors < 0 || g.ndoors > MAXDOORS) return false;
+    if (g.floortex < 0 || g.floortex >= FT_COUNT || g.ceiltex < 0 || g.ceiltex >= FT_COUNT) return false;
+    if (g.ambient < 0 || g.ambient >= 32 || g.skill < 0 || g.skill >= SK_COUNT || g.nsnd < 0 || g.nsnd > 32) return false;
+    for (int y = 0; y < MAPH; y++)
+        for (int x = 0; x < MAPW; x++) {
+            if (g.tile[y][x] > TL_EXIT || g.tex[y][x] >= WT_COUNT || g.doorat[y][x] >= g.ndoors) return false;
+            if (g.tile[y][x] == TL_DOOR && g.doorat[y][x] < 0) return false;
+        }
+    for (int i = 0; i < g.ndoors; i++)
+        if (g.doors[i].tx >= g.w || g.doors[i].ty >= g.h || g.doors[i].lock > 3 || g.doors[i].open < 0 || g.doors[i].open > FRACUNIT)
+            return false;
+    const pushwall_t *pw = &g.push;
+    if (pw->active && (pw->tex < 0 || pw->tex >= WT_COUNT || pw->dist < 0 || pw->dist > 2 || pw->dx < -1 || pw->dx > 1 ||
+                       pw->dy < -1 || pw->dy > 1 || pw->tx < 2 || pw->ty < 2 || pw->tx >= g.w - 2 || pw->ty >= g.h - 2))
+        return false;
+    for (int i = 0; i < MAXACTORS; i++) {
+        const actor_t *a = &g.actors[i];
+        if (!a->inuse) continue;
+        if (a->type >= MT_COUNT || a->state < 0 || a->state >= NUMSTATES || a->movedir < -1 || a->movedir > 7) return false;
+        if (a->x < 0 || a->y < 0 || a->x >= itof(g.w) || a->y >= itof(g.h) || a->owner < -1 || a->owner >= MAXACTORS) return false;
+    }
+    const player_t *p = &g.player;
+    if (p->readyweapon < 0 || p->readyweapon >= WP_COUNT || p->pendingweapon < 0 || p->pendingweapon >= WP_COUNT) return false;
+    if (p->wstate < 0 || p->wstate >= NUMSTATES || p->x < 0 || p->y < 0 || p->x >= itof(g.w) || p->y >= itof(g.h)) return false;
+    return true;
+}
+
 uint32_t g_checksum(void)
 {
     uint32_t h = 2166136261u;

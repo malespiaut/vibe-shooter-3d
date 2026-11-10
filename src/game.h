@@ -180,6 +180,8 @@ uint32_t g_checksum(void);
 void g_new_player(player_t *p);
 int16_t g_state_sprite(int state); /* image for an actor/weapon state, -1 = none */
 int g_weapon_ammo(int weapon);     /* AM_* used by a weapon, AM_NONE for melee */
+/* range-check a game state that came from a file; false = reject it */
+bool g_validate(void);
 int g_state_bright(int state);
 
 #endif
