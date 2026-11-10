@@ -21,7 +21,7 @@ static const uint8_t ramps[16][2][3] = {
     {{0, 18, 0}, {128, 240, 96}},     {{12, 15, 4}, {176, 186, 108}},  {{0, 2, 30}, {120, 150, 255}},
     {{0, 16, 20}, {130, 244, 244}},   {{14, 0, 24}, {206, 128, 255}},  {{34, 16, 8}, {255, 204, 166}},
     {{8, 11, 16}, {186, 204, 224}},   {{14, 0, 0}, {176, 24, 20}},     {{30, 6, 16}, {255, 156, 204}},
-    {{70, 22, 0}, {255, 255, 236}},
+    {{70, 22, 0}, {255, 244, 160}},
 };
 
 uint8_t gfx_nearest(int r, int g, int b)
@@ -475,6 +475,233 @@ static void soldier_dying(int frame)
     outline();
 }
 
+/* ---------------------------------------------------------------- the hound: low, fast, all teeth */
+
+enum { HP_STAND, HP_RUN1, HP_RUN2, HP_LUNGE, HP_PAIN };
+
+static void hound(int pose)
+{
+    float lf = pose == HP_RUN1 ? -3 : pose == HP_RUN2 ? 3 : 0, hy = pose == HP_LUNGE ? 34 : pose == HP_PAIN ? 42 : 40;
+    float hx = pose == HP_PAIN ? 28 : 32;
+    capsule(22, 50, 20 + lf, 61, 3, R_BLOOD, 6); /* hind legs, splayed */
+    capsule(42, 50, 44 - lf, 61, 3, R_BLOOD, 6);
+    ellipse(32, 46, 15, 9, R_BLOOD, 8);          /* hunched body */
+    for (int i = 0; i < 4; i++) ellipse(25 + i * 5, 39, 1.6f, 2.5f, R_PINK, 7); /* spine ridges */
+    capsule(26, 50, 25 - lf, 61, 3.4f, R_BLOOD, 8); /* front legs */
+    capsule(38, 50, 39 + lf, 61, 3.4f, R_BLOOD, 8);
+    capsule(22 - lf, 62, 28 - lf, 62, 1.5f, R_GRAY, 10); /* claws */
+    capsule(36 + lf, 62, 42 + lf, 62, 1.5f, R_GRAY, 10);
+    ellipse(hx, hy, 9, 7.5f, R_BLOOD, 9); /* head */
+    ellipse(hx - 4, hy - 2, 1.8f, 1.4f, R_YELLOW, 15);
+    ellipse(hx + 4, hy - 2, 1.8f, 1.4f, R_YELLOW, 15);
+    if (pose == HP_LUNGE) { /* jaws wide open: the tell before the bite */
+        ellipse(hx, hy + 5, 6.5f, 5, R_BLOOD, 1);
+        for (int i = 0; i < 5; i++) {
+            capsule(hx - 5 + i * 2.5f, hy + 1, hx - 5 + i * 2.5f, hy + 3, 0.6f, R_GRAY, 14);
+            capsule(hx - 5 + i * 2.5f, hy + 9, hx - 5 + i * 2.5f, hy + 7, 0.6f, R_GRAY, 14);
+        }
+    } else {
+        capsule(hx - 5, hy + 4, hx + 5, hy + 4, 1, R_BLOOD, 2);
+        for (int i = 0; i < 4; i++) put((int)(hx - 4 + i * 3), (int)(hy + 5), RAMP(R_GRAY, 14));
+    }
+    if (pose == HP_PAIN) splat(32, 44, 7, 10, 201, R_BLOOD, 3);
+    outline();
+}
+
+static void hound_dying(int f)
+{
+    if (f == 0) {
+        hound(HP_PAIN);
+        splat(32, 44, 10, 18, 202, R_RED, 6);
+        return;
+    }
+    ellipse(32, 58 - f, 16 + f * 2, 5, R_BLOOD, 6);
+    ellipse(f == 1 ? 18 : 14, 57, 7, 5, R_BLOOD, 7);
+    capsule(40, 58, 52, 62, 2.5f, R_BLOOD, 5);
+    splat(30, 60, 10, 18, 203, R_RED, 4);
+    outline();
+}
+
+/* ---------------------------------------------------------------- the spitter: hooded, gas mask, throws fire */
+
+enum { SP_STAND, SP_WALK1, SP_WALK2, SP_WIND, SP_THROW, SP_PAIN };
+
+static void spitter(int pose)
+{
+    float lf = pose == SP_WALK1 ? -3 : pose == SP_WALK2 ? 3 : 0, lean = pose == SP_PAIN ? 3 : 0;
+    capsule(28, 44, 27 + lf, 59, 3, R_BROWN, 3);
+    capsule(36, 44, 37 - lf, 59, 3, R_BROWN, 3);
+    for (int y = 22; y < 56; y++) /* robe, flaring toward the hem */
+        for (int x = 0; x < 64; x++) {
+            float half = 8 + (y - 22) * 0.28f, nx = (x + 0.5f - 32 - lean * (56 - y) / 34) / half;
+            if (fabsf(nx) > 1) continue;
+            put(x, y, sh(R_ORANGE, 6 - nx * 3 + ((x + y / 3) % 7 == 0 ? -1.5f : 0)));
+        }
+    capsule(24 + lean, 25, 40 + lean, 25, 3, R_ORANGE, 5);
+    float hx = 32 + lean, hy = 15;
+    ellipse(hx, hy, 7, 8, R_ORANGE, 5); /* hood */
+    ellipse(hx, hy + 2, 5, 5, R_GRAY, 2); /* mask */
+    ellipse(hx - 2.2f, hy + 1, 1.5f, 1.5f, R_CYAN, 14);
+    ellipse(hx + 2.2f, hy + 1, 1.5f, 1.5f, R_CYAN, 14);
+    capsule(hx, hy + 5, hx, hy + 8, 1.6f, R_GRAY, 4); /* filter */
+    if (pose == SP_WIND) { /* right arm high, fire gathering in the palm */
+        capsule(40, 25, 47, 12, 2.6f, R_ORANGE, 6);
+        ellipse(48, 9, 5.5f, 5.5f, R_ORANGE, 13);
+        ellipse(48, 9, 2.5f, 2.5f, R_FIRE, 14);
+        capsule(24, 25, 21, 38, 2.6f, R_ORANGE, 5);
+    } else if (pose == SP_THROW) {
+        capsule(40, 25, 36, 30, 2.6f, R_ORANGE, 6);
+        ellipse(34, 30, 3, 3, R_GRAY, 3);
+        capsule(24, 25, 20, 37, 2.6f, R_ORANGE, 5);
+    } else {
+        float sw = pose == SP_WALK1 ? 2 : pose == SP_WALK2 ? -2 : 0;
+        capsule(24 + lean, 25, 21 + lean + sw, 38, 2.6f, R_ORANGE, 5);
+        capsule(40 + lean, 25, 43 + lean - sw, 38, 2.6f, R_ORANGE, 5);
+        ellipse(21 + lean + sw, 39, 2, 2, R_GRAY, 3);
+        ellipse(43 + lean - sw, 39, 2, 2, R_GRAY, 3);
+    }
+    if (pose == SP_PAIN) splat(34, 30, 6, 10, 211, R_BLOOD, 8);
+    outline();
+}
+
+static void spitter_dying(int f)
+{
+    if (f == 0) {
+        spitter(SP_PAIN);
+        ellipse(32, 15, 6, 6, R_FIRE, 11); /* the mask's tank bursts */
+        outline();
+        return;
+    }
+    float h = f == 1 ? 40 : f == 2 ? 52 : 58;
+    for (int y = (int)h - 8; y < 62; y++)
+        for (int x = 0; x < 64; x++) {
+            float half = 10 + (y - h) * 0.9f + f * 2, nx = (x + 0.5f - 32) / half;
+            if (half > 0 && fabsf(nx) <= 1) put(x, y, sh(R_ORANGE, 5 - nx * 2));
+        }
+    ellipse(f == 3 ? 16 : 32, h - 6, 6, 5, R_ORANGE, 4);
+    ellipse(f == 3 ? 16 : 32, h - 5, 3.5f, 3, R_GRAY, 2);
+    splat(32, 58, 9, 12, 212 + f, R_BLOOD, 5);
+    outline();
+}
+
+/* ---------------------------------------------------------------- the brute: armor plates and a rotary cannon */
+
+enum { BP_STAND, BP_WALK1, BP_WALK2, BP_AIM, BP_FIRE, BP_PAIN };
+static int armor = R_STEEL, visor = R_RED; /* the warden is a recolored brute */
+
+static void brute(int pose)
+{
+    float lf = pose == BP_WALK1 ? -3 : pose == BP_WALK2 ? 3 : 0, lean = pose == BP_PAIN ? -3 : 0;
+    capsule(25, 42, 23 + lf, 58, 5, armor, 4);
+    capsule(39, 42, 41 - lf, 58, 5, armor, 4);
+    rectf(17 + (int)lf, 57, 29 + (int)lf, 62, R_GRAY, 3);
+    rectf(35 - (int)lf, 57, 47 - (int)lf, 62, R_GRAY, 3);
+    ellipse(32 + lean * 0.5f, 30, 15, 15, armor, 6); /* barrel chest */
+    rectf(24 + (int)lean / 2, 24, 40 + (int)lean / 2, 36, armor, 8);
+    rectf(26 + (int)lean / 2, 38, 38 + (int)lean / 2, 42, R_GRAY, 3);
+    ellipse(13 + lean, 20, 7, 5, armor, 8); /* pauldrons */
+    ellipse(51 + lean, 20, 7, 5, armor, 8);
+    float hx = 32 + lean;
+    ellipse(hx, 11, 6, 6, armor, 7);
+    capsule(hx - 4, 12, hx + 4, 12, 1.5f, visor, 13); /* visor slit */
+    capsule(12 + lean, 22, 16 + lean, 40, 4, armor, 5); /* left arm */
+    ellipse(16 + lean, 42, 3.5f, 3.5f, R_GRAY, 4);
+    if (pose == BP_AIM || pose == BP_FIRE) { /* cannon swung to face you */
+        capsule(52, 22, 42, 32, 4, armor, 5);
+        ellipse(40, 33, 7, 7, R_GRAY, 3);
+        for (int i = 0; i < 6; i++) ellipse(40 + cosf(i * 1.047f + pose) * 4, 33 + sinf(i * 1.047f + pose) * 4, 1.4f, 1.4f, R_GRAY, 0);
+        if (pose == BP_FIRE) {
+            for (int i = 0; i < 8; i++) {
+                float a = i * 0.785f;
+                capsule(40, 33, 40 + cosf(a) * 11, 33 + sinf(a) * 10, 1.5f, R_FIRE, 11);
+            }
+            ellipse(40, 33, 6, 6, R_FIRE, 13);
+        }
+    } else {
+        capsule(52 + lean, 22, 52 + lean, 34, 4, armor, 5);
+        capsule(50 + lean, 34, 58 + lean, 54, 4.5f, R_GRAY, 4); /* cannon pointing down */
+        ellipse(58 + lean, 55, 3.5f, 2, R_GRAY, 1);
+    }
+    if (pose == BP_PAIN) splat(30, 28, 7, 12, 221, R_BLOOD, 8);
+    outline();
+}
+
+static void brute_dying(int f)
+{
+    if (f == 0) {
+        brute(BP_PAIN);
+        splat(30, 24, 10, 20, 222, R_BLOOD, 7);
+        outline();
+        return;
+    }
+    float y = f == 1 ? 40 : f == 2 ? 50 : 57;
+    ellipse(32, y, 16 + f * 2, 12 - f * 2.5f, armor, 5);
+    ellipse(f == 3 ? 10 : 22, y - 6 + f * 2, 6, 5.5f, armor, 6);
+    capsule(f == 3 ? 6 : 18, y - 5 + f * 2, f == 3 ? 12 : 24, y - 5 + f * 2, 1.2f, visor, 6);
+    capsule(40, y + 4, 58, 61, 4, R_GRAY, 3);
+    capsule(20, y + 6, 26, 61, 4, armor, 4);
+    splat(32, 60, 14, 22, 223 + f, R_BLOOD, 5);
+    outline();
+}
+
+static void make_monsters(void)
+{
+    static const int hp[5] = {HP_STAND, HP_RUN1, HP_RUN2, HP_LUNGE, HP_PAIN};
+    for (int i = 0; i < 5; i++) {
+        begin(SPR_HOUND_S + i, 64, 64);
+        hound(hp[i]);
+    }
+    for (int i = 0; i < 3; i++) {
+        begin(SPR_HOUND_D1 + i, 64, 64);
+        hound_dying(i);
+    }
+    static const int sp[6] = {SP_STAND, SP_WALK1, SP_WALK2, SP_WIND, SP_THROW, SP_PAIN};
+    for (int i = 0; i < 6; i++) {
+        begin(SPR_SPIT_S + i, 64, 64);
+        spitter(sp[i]);
+    }
+    for (int i = 0; i < 4; i++) {
+        begin(SPR_SPIT_D1 + i, 64, 64);
+        spitter_dying(i);
+    }
+    static const int bp[6] = {BP_STAND, BP_WALK1, BP_WALK2, BP_AIM, BP_FIRE, BP_PAIN};
+    for (int i = 0; i < 6; i++) {
+        begin(SPR_BRUTE_S + i, 64, 64);
+        brute(bp[i]);
+    }
+    for (int i = 0; i < 4; i++) {
+        begin(SPR_BRUTE_D1 + i, 64, 64);
+        brute_dying(i);
+    }
+    armor = R_BLOOD;
+    visor = R_YELLOW;
+    for (int i = 0; i < 6; i++) {
+        begin(SPR_WARDEN_S + i, 64, 64);
+        brute(bp[i]);
+    }
+    for (int i = 0; i < 4; i++) {
+        begin(SPR_WARDEN_D1 + i, 64, 64);
+        brute_dying(i);
+    }
+    for (int i = 0; i < 2; i++) {
+        begin(SPR_FIREBALL1 + i, 64, 64);
+        ellipse(32, 31, 6 - i, 5 + i, R_ORANGE, 12);
+        ellipse(32 + i, 30, 3.5f, 3, R_FIRE, 14);
+        splat(32, 31, 7, 6, 230 + i, R_FIRE, 11);
+    }
+    begin(SPR_ROCKET, 64, 64);
+    ellipse(32, 31, 4.5f, 4.5f, R_FIRE, 12);
+    ellipse(32, 31, 2.5f, 2.5f, R_GRAY, 6);
+    for (int i = 0; i < 3; i++) {
+        begin(SPR_EXPL1 + i, 64, 64);
+        float r = 9 + i * 5;
+        if (i > 0) splat(32, 31, r, 14 + i * 4, 240 + i, R_GRAY, 7 - i * 2);
+        ellipse(32, 31, r * (i == 2 ? 0.7f : 1), r * (i == 2 ? 0.6f : 0.9f), i == 0 ? R_YELLOW : R_ORANGE, 13 - i * 2);
+        ellipse(32, 31, r * 0.55f, r * 0.5f, i == 2 ? R_RED : R_FIRE, 13 - i * 2);
+        if (i < 2) splat(32, 31, r * 1.3f, 10, 250 + i, R_YELLOW, 13);
+    }
+}
+
 /* ---------------------------------------------------------------- items, decor, effects */
 
 static void make_items(void)
@@ -531,6 +758,41 @@ static void make_items(void)
     capsule(10, 59, 40, 59, 1.4f, R_STEEL, 5);
     capsule(28, 58, 36, 58, 2.2f, R_BROWN, 7);
     capsule(42, 58, 56, 61, 3, R_BROWN, 6);
+    outline();
+
+    begin(SPR_CHAINGUN, 64, 64);
+    for (int i = 0; i < 3; i++) capsule(12, 54 + i * 2.2f, 40, 54 + i * 2.2f, 1.2f, R_GRAY, 5 + i);
+    rectf(38, 51, 50, 61, R_STEEL, 6);
+    capsule(48, 59, 54, 62, 2, R_GRAY, 3);
+    capsule(42, 50, 50, 48, 1, R_GRAY, 7);
+    outline();
+
+    begin(SPR_LAUNCHER, 64, 64);
+    capsule(8, 55, 52, 55, 4, R_OLIVE, 6);
+    ellipse(8, 55, 2.5f, 3.5f, R_GRAY, 0);
+    rectf(30, 58, 34, 62, R_GRAY, 3);
+    rectf(38, 50, 44, 52, R_GRAY, 4);
+    outline();
+
+    begin(SPR_ROCKETAMMO, 64, 64);
+    capsule(32, 46, 32, 60, 2.5f, R_OLIVE, 7);
+    ellipse(32, 45, 2.5f, 3, R_RED, 10);
+    rectf(28, 59, 36, 61, R_GRAY, 4);
+    outline();
+
+    begin(SPR_ROCKETBOX, 64, 64);
+    rectf(18, 48, 46, 61, R_BROWN, 7);
+    for (int i = 0; i < 4; i++) {
+        capsule(23 + i * 6, 42, 23 + i * 6, 48, 2.2f, R_OLIVE, 7);
+        ellipse(23 + i * 6, 41, 2.2f, 2.4f, R_RED, 10);
+    }
+    capsule(18, 54, 46, 54, 0.6f, R_BROWN, 3);
+    outline();
+
+    begin(SPR_BULLETBOX, 64, 64);
+    rectf(22, 50, 42, 61, R_OLIVE, 6);
+    rectf(24, 47, 40, 49, R_YELLOW, 9);
+    rectf(28, 53, 36, 56, R_TAN, 11);
     outline();
 
     begin(SPR_LAMP, 64, 64);
@@ -653,8 +915,88 @@ static void shotgun(int frame)
     outline();
 }
 
+/* knife held low on the right; the thrust swings it to the centre */
+static void knife(int frame)
+{
+    float bx = frame == 0 ? 92 : frame == 1 ? 98 : 66, by = frame == 0 ? 50 : frame == 1 ? 62 : 30;
+    float tx = frame == 2 ? 64 : bx - 6, ty = frame == 2 ? 8 : by - 30;
+    capsule(bx + 12, by + 24, bx + 44, by + 84, 13, R_OLIVE, 5); /* sleeve, then hand over it */
+    ellipse(bx + 4, by + 16, 10, 8, R_SKIN, 8);
+    for (int i = 0; i <= 20; i++) { /* tapering blade */
+        float t = i / 20.0f;
+        capsule(bx + (tx - bx) * t, by + (ty - by) * t, bx + (tx - bx) * t, by + (ty - by) * t, 3.2f * (1 - t * 0.8f), R_STEEL,
+                10 - t * 2);
+    }
+    capsule(bx, by, bx + 4, by + 14, 3.5f, R_BROWN, 5); /* handle */
+    capsule(bx - 3, by + 12, bx + 9, by + 18, 3, R_SKIN, 9); /* fingers around the handle */
+    outline();
+}
+
+/* rotary barrels; the two firing frames rotate the highlight */
+static void chaingun(int frame)
+{
+    float k = frame ? -3 : 0;
+    if (frame) flash(64, 24 + k, 11, 10 + frame * 2);
+    for (int y = (int)(30 + k); y < 96; y++) {
+        float t = (y - 30 - k) / 66.0f, r = 3 + t * 9;
+        for (int b = 0; b < 3; b++) {
+            float a = b * 2.094f + frame * 1.047f, cx = 64 + cosf(a) * r, d = sinf(a);
+            float hw = 2 + t * 3.5f;
+            for (int x = (int)(cx - hw); x <= (int)(cx + hw); x++) {
+                float nx = (x - cx) / hw;
+                put(x, y, sh(R_STEEL, 4 + d * 2 - nx * 2 + (1 - nx * nx)));
+            }
+        }
+    }
+    for (int b = 0; b < 3; b++) {
+        float a = b * 2.094f + frame * 1.047f;
+        ellipse(64 + cosf(a) * 3, 31 + k, 1.4f, 1.2f, R_GRAY, 0);
+    }
+    rectf(44, (int)(76 + k), 84, 95, R_GRAY, 4); /* housing */
+    rectf(48, (int)(80 + k), 80, 84 + (int)k, R_STEEL, 7);
+    ellipse(42, 88, 10, 8, R_SKIN, 8);
+    ellipse(86, 90, 10, 8, R_SKIN, 8);
+    capsule(30, 100, 40, 92, 12, R_OLIVE, 5);
+    capsule(98, 100, 88, 92, 12, R_OLIVE, 5);
+    outline();
+}
+
+static void launcher(int frame)
+{
+    float k = frame ? -6 : 0;
+    if (frame) {
+        flash(64, 30 + k, 12, 12);
+        splat(64, 40, 16, 12, 260, R_GRAY, 8);
+    }
+    for (int y = (int)(36 + k); y < 96; y++) {
+        float t = (y - 36 - k) / 60.0f, hw = 9 + t * 14;
+        for (int x = (int)(64 - hw); x <= (int)(64 + hw); x++) {
+            float nx = (x - 64) / hw;
+            put(x, y, sh(R_OLIVE, 6 - nx * 3 + (1 - nx * nx) * 1.5f + ((y - (int)k) % 18 == 0 ? -2 : 0)));
+        }
+    }
+    ellipse(64, 37 + k, 8, 4, R_GRAY, 1); /* muzzle */
+    if (!frame) ellipse(64, 37, 4, 2, R_RED, 7); /* rocket tip waiting inside */
+    rectf(78, (int)(50 + k), 86, (int)(60 + k), R_GRAY, 4); /* sight */
+    ellipse(88, 90 + k / 2, 11, 8, R_SKIN, 8);
+    capsule(98, 100, 92, 94, 12, R_OLIVE, 5);
+    outline();
+}
+
 static void make_weapons(void)
 {
+    for (int f = 0; f < 3; f++) {
+        begin(SPR_KNIFE + f, 128, 96);
+        knife(f);
+    }
+    for (int f = 0; f < 3; f++) {
+        begin(SPR_CGUN + f, 128, 96);
+        chaingun(f);
+    }
+    for (int f = 0; f < 2; f++) {
+        begin(SPR_RLAUNCH + f, 128, 96);
+        launcher(f);
+    }
     for (int f = 0; f < 3; f++) {
         begin(SPR_PISTOL + f, 128, 96);
         pistol(f);
@@ -680,6 +1022,7 @@ void gfx_init(void)
         begin(SPR_GRUNT_D1 + i, 64, 64);
         soldier_dying(i);
     }
+    make_monsters();
     make_items();
     make_weapons();
 }

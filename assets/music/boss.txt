@@ -1,0 +1,18 @@
+; "The Warden": C minor, relentless
+tempo: 150
+pattern A
+bass: c2 c2 c3 c2 c2 c3 c2 d#2 c2 c2 c3 c2 g1 . a#1 b1
+lead: . . . . . . . . . . . . . . . .
+pad:  c4 . . . . . . . . . . . . . . .
+drum: k . h k s . h k k . h k s k s s
+pattern B
+bass: c2 c2 c3 c2 c2 c3 c2 d#2 c2 c2 c3 c2 g1 . a#1 b1
+lead: c5 . . d#5 . . g5 . f5 . d#5 . d5 . b4 .
+pad:  d#4 . . . . . . . d4 . . . . . . .
+drum: k . h k s . h k k . h k s k s s
+pattern C
+bass: g#1 g#1 g#2 g#1 g#1 g#2 g#1 . g1 g1 g2 g1 g1 g2 b1 .
+lead: d#5 . c5 . g#4 . c5 . d5 . b4 . g4 . b4 .
+pad:  c4 . . . . . . . b3 . . . . . . .
+drum: k k h k s . h k k k h k s s s s
+order: A B B C B C

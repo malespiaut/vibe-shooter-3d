@@ -28,9 +28,21 @@ enum { /* sprite images */
     SPR_STIM, SPR_MEDKIT, SPR_ARMOR, SPR_CLIP, SPR_SHELLS,
     SPR_KEYR, SPR_KEYB, SPR_KEYY, SPR_SHOTGUN,
     SPR_LAMP, SPR_PILLAR, SPR_BARREL,
+    SPR_HOUND_S, SPR_HOUND_W1, SPR_HOUND_W2, SPR_HOUND_A, SPR_HOUND_P, SPR_HOUND_D1, SPR_HOUND_D2, SPR_HOUND_D3,
+    SPR_SPIT_S, SPR_SPIT_W1, SPR_SPIT_W2, SPR_SPIT_A1, SPR_SPIT_A2, SPR_SPIT_P,
+    SPR_SPIT_D1, SPR_SPIT_D2, SPR_SPIT_D3, SPR_SPIT_D4,
+    SPR_BRUTE_S, SPR_BRUTE_W1, SPR_BRUTE_W2, SPR_BRUTE_A, SPR_BRUTE_F, SPR_BRUTE_P,
+    SPR_BRUTE_D1, SPR_BRUTE_D2, SPR_BRUTE_D3, SPR_BRUTE_D4,
+    SPR_WARDEN_S, SPR_WARDEN_W1, SPR_WARDEN_W2, SPR_WARDEN_A, SPR_WARDEN_F, SPR_WARDEN_P,
+    SPR_WARDEN_D1, SPR_WARDEN_D2, SPR_WARDEN_D3, SPR_WARDEN_D4,
+    SPR_FIREBALL1, SPR_FIREBALL2, SPR_ROCKET, SPR_EXPL1, SPR_EXPL2, SPR_EXPL3,
+    SPR_CHAINGUN, SPR_LAUNCHER, SPR_ROCKETAMMO, SPR_ROCKETBOX, SPR_BULLETBOX,
     /* first-person weapon frames */
+    SPR_KNIFE, SPR_KNIFE_A1, SPR_KNIFE_A2,
     SPR_PISTOL, SPR_PISTOL_F1, SPR_PISTOL_F2,
     SPR_SGUN, SPR_SGUN_F, SPR_SGUN_R1, SPR_SGUN_R2,
+    SPR_CGUN, SPR_CGUN_F1, SPR_CGUN_F2,
+    SPR_RLAUNCH, SPR_RLAUNCH_F,
     SPR_COUNT
 };
 
@@ -38,6 +50,10 @@ enum { /* sound effects */
     SFX_NONE, SFX_PISTOL, SFX_SHOTGUN, SFX_SGCOCK, SFX_ENEMYFIRE,
     SFX_GRUNT_SEE, SFX_GRUNT_PAIN, SFX_GRUNT_DIE, SFX_PLAYER_PAIN, SFX_PLAYER_DIE,
     SFX_ITEM, SFX_WPNUP, SFX_DOOR_OPEN, SFX_DOOR_CLOSE, SFX_PUSHWALL, SFX_SWITCH, SFX_NOWAY,
+    SFX_HOUND_SEE, SFX_HOUND_BITE, SFX_HOUND_PAIN, SFX_HOUND_DIE,
+    SFX_SPIT_SEE, SFX_SPIT_PAIN, SFX_SPIT_DIE, SFX_FIREBALL, SFX_EXPLODE,
+    SFX_BRUTE_SEE, SFX_BRUTE_PAIN, SFX_BRUTE_DIE,
+    SFX_CHAINGUN, SFX_ROCKET, SFX_KNIFE, SFX_KNIFEHIT, SFX_WARDEN_SEE, SFX_WARDEN_DIE,
     SFX_COUNT
 };
 
@@ -57,11 +73,13 @@ enum {
     MT_GRUNT, MT_PUFF, MT_BLOOD,
     MT_STIM, MT_MEDKIT, MT_ARMOR, MT_CLIP, MT_SHELLS, MT_KEYR, MT_KEYB, MT_KEYY, MT_SHOTGUN,
     MT_LAMP, MT_PILLAR, MT_BARREL,
+    MT_HOUND, MT_SPITTER, MT_BRUTE, MT_FIREBALL, MT_ROCKET, MT_WARDEN, MT_WROCKET,
+    MT_CHAINGUN, MT_LAUNCHER, MT_ROCKETAMMO, MT_ROCKETBOX, MT_BULLETBOX,
     MT_COUNT
 };
 enum {
     MF_SOLID = 1, MF_SHOOTABLE = 2, MF_PICKUP = 4, MF_COUNTKILL = 8, MF_COUNTITEM = 16,
-    MF_AMBUSH = 32, MF_CORPSE = 64, MF_DROPPED = 128
+    MF_AMBUSH = 32, MF_CORPSE = 64, MF_DROPPED = 128, MF_MISSILE = 256
 };
 
 typedef struct {
@@ -73,18 +91,19 @@ typedef struct {
     int32_t health;
     int32_t movedir, movecount, reactiontime, threshold;
     int32_t awake;
+    int32_t owner; /* missiles: index of the shooter, -1 = player */
 } actor_t;
 
 typedef struct {
-    int16_t spawnstate, seestate, painstate, attackstate, deathstate;
+    int16_t spawnstate, seestate, painstate, attackstate, meleestate, deathstate;
     int32_t health, painchance, flags;
     fixed_t speed, radius;
     int16_t seesound, painsound, deathsound;
 } mobjinfo_t;
 
 /* ---- player ---- */
-enum { WP_PISTOL, WP_SHOTGUN, WP_COUNT };
-enum { AM_BULLET, AM_SHELL, AM_COUNT };
+enum { WP_KNIFE, WP_PISTOL, WP_SHOTGUN, WP_CHAINGUN, WP_LAUNCHER, WP_COUNT };
+enum { AM_NONE = -1, AM_BULLET, AM_SHELL, AM_ROCKET, AM_COUNT };
 enum { KEY_RED = 1, KEY_BLUE = 2, KEY_YELLOW = 4 };
 
 typedef struct {
@@ -133,6 +152,7 @@ typedef struct {
     pushwall_t push;
     int32_t floortex, ceiltex, ambient; /* ambient: 0 bright .. 31 dark */
     char levelname[32];
+    char music[32]; /* file in assets/music */
     int32_t par;
 
     actor_t actors[MAXACTORS];
@@ -159,6 +179,7 @@ void g_ticker(const ticcmd_t *cmd);
 uint32_t g_checksum(void);
 void g_new_player(player_t *p);
 int16_t g_state_sprite(int state); /* image for an actor/weapon state, -1 = none */
+int g_weapon_ammo(int weapon);     /* AM_* used by a weapon, AM_NONE for melee */
 int g_state_bright(int state);
 
 #endif

@@ -24,3 +24,9 @@ add_test(NAME determinism COMMAND demo_test WORKING_DIRECTORY ${CMAKE_SOURCE_DIR
 # Dev tool: headless screenshots and art contact sheets.
 add_executable(snapshot tools/snapshot.c src/render.c src/gfx.c src/font.c src/sound.c)
 target_link_libraries(snapshot PRIVATE sim m)
+
+# Level validator, run over every shipped level.
+add_executable(levelcheck tools/levelcheck.c)
+target_link_libraries(levelcheck PRIVATE sim)
+file(GLOB LEVELS ${CMAKE_SOURCE_DIR}/assets/levels/*.txt)
+add_test(NAME levels COMMAND levelcheck ${LEVELS})

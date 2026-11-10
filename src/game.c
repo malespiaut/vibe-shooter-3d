@@ -15,25 +15,53 @@ enum {
     S_GRUNT_ATK1, S_GRUNT_ATK2, S_GRUNT_ATK3,
     S_GRUNT_PAIN, S_GRUNT_PAIN2,
     S_GRUNT_DIE1, S_GRUNT_DIE2, S_GRUNT_DIE3, S_GRUNT_DEAD,
+    S_HOUND_STND, S_HOUND_RUN1, S_HOUND_RUN2, S_HOUND_RUN3, S_HOUND_RUN4,
+    S_HOUND_ATK1, S_HOUND_ATK2, S_HOUND_ATK3, S_HOUND_PAIN,
+    S_HOUND_DIE1, S_HOUND_DIE2, S_HOUND_DEAD,
+    S_SPIT_STND, S_SPIT_RUN1, S_SPIT_RUN2, S_SPIT_RUN3, S_SPIT_RUN4,
+    S_SPIT_ATK1, S_SPIT_ATK2, S_SPIT_ATK3, S_SPIT_PAIN,
+    S_SPIT_DIE1, S_SPIT_DIE2, S_SPIT_DIE3, S_SPIT_DEAD,
+    S_BRUTE_STND, S_BRUTE_RUN1, S_BRUTE_RUN2, S_BRUTE_RUN3, S_BRUTE_RUN4,
+    S_BRUTE_ATK1, S_BRUTE_ATK2, S_BRUTE_ATK3, S_BRUTE_ATK4, S_BRUTE_ATK5, S_BRUTE_ATK6, S_BRUTE_ATK7,
+    S_BRUTE_PAIN, S_BRUTE_DIE1, S_BRUTE_DIE2, S_BRUTE_DIE3, S_BRUTE_DEAD,
+    S_WARDEN_STND, S_WARDEN_RUN1, S_WARDEN_RUN2, S_WARDEN_RUN3, S_WARDEN_RUN4,
+    S_WARDEN_ATK1, S_WARDEN_ATK2, S_WARDEN_ATK3, S_WARDEN_ATK4, S_WARDEN_ATK5, S_WARDEN_PAIN,
+    S_WARDEN_DIE1, S_WARDEN_DIE2, S_WARDEN_DIE3, S_WARDEN_DEAD,
+    S_FIREBALL1, S_FIREBALL2, S_ROCKET1, S_EXPL1, S_EXPL2, S_EXPL3,
+    S_BARREL, S_BEXPL1, S_BEXPL2, S_BEXPL3, S_BEXPL4,
     S_PUFF1, S_PUFF2, S_PUFF3, S_BLOOD1, S_BLOOD2, S_BLOOD3,
     S_STIM, S_MEDKIT, S_ARMOR, S_CLIP, S_SHELLS, S_KEYR, S_KEYB, S_KEYY, S_SHOTGUN,
-    S_LAMP, S_PILLAR, S_BARREL,
+    S_CHAINGUN, S_LAUNCHER, S_ROCKETAMMO, S_ROCKETBOX, S_BULLETBOX,
+    S_LAMP, S_PILLAR,
+    S_KNIFE, S_KNIFE1, S_KNIFE2, S_KNIFE3, S_KNIFE4,
     S_PISTOL, S_PISTOL1, S_PISTOL2, S_PISTOL3, S_PISTOL4,
     S_SGUN, S_SGUN1, S_SGUN2, S_SGUN3, S_SGUN4, S_SGUN5, S_SGUN6, S_SGUN7,
+    S_CGUN, S_CGUN1, S_CGUN2, S_CGUN3,
+    S_RL, S_RL1, S_RL2, S_RL3,
     NUMSTATES
 };
 
 static void A_Look(actor_t *a);
 static void T_Chase(actor_t *a);
+static void T_Missile(actor_t *a);
 static void A_FaceTarget(actor_t *a);
 static void A_GruntShoot(actor_t *a);
+static void A_BruteShoot(actor_t *a);
+static void A_Bite(actor_t *a);
+static void A_Spit(actor_t *a);
+static void A_WardenRocket(actor_t *a);
+static void A_BossDeath(actor_t *a);
+static void A_Explode(actor_t *a);
 static void A_Pain(actor_t *a);
 static void A_Scream(actor_t *a);
 static void A_Fall(actor_t *a);
 static void W_Ready(player_t *p);
 static void W_ReFire(player_t *p);
+static void W_Knife(player_t *p);
 static void W_FirePistol(player_t *p);
 static void W_FireShotgun(player_t *p);
+static void W_FireChaingun(player_t *p);
+static void W_FireRocket(player_t *p);
 static void W_Cock(player_t *p);
 
 typedef struct {
@@ -66,6 +94,79 @@ static const state_def sdef[NUMSTATES] = {
     [S_GRUNT_DIE2] = A(SPR_GRUNT_D2, 6, A_Fall, NULL, S_GRUNT_DIE3),
     [S_GRUNT_DIE3] = A(SPR_GRUNT_D3, 6, NULL, NULL, S_GRUNT_DEAD),
     [S_GRUNT_DEAD] = A(SPR_GRUNT_D4, -1, NULL, NULL, S_NULL),
+    /* hound: fast, low, telegraphs its bite by rearing back */
+    [S_HOUND_STND] = A(SPR_HOUND_S, 10, A_Look, NULL, S_HOUND_STND),
+    [S_HOUND_RUN1] = A(SPR_HOUND_W1, 4, NULL, T_Chase, S_HOUND_RUN2),
+    [S_HOUND_RUN2] = A(SPR_HOUND_W2, 4, NULL, T_Chase, S_HOUND_RUN3),
+    [S_HOUND_RUN3] = A(SPR_HOUND_W1, 4, NULL, T_Chase, S_HOUND_RUN4),
+    [S_HOUND_RUN4] = A(SPR_HOUND_W2, 4, NULL, T_Chase, S_HOUND_RUN1),
+    [S_HOUND_ATK1] = A(SPR_HOUND_A, 7, A_FaceTarget, NULL, S_HOUND_ATK2),
+    [S_HOUND_ATK2] = A(SPR_HOUND_W1, 4, A_Bite, NULL, S_HOUND_ATK3),
+    [S_HOUND_ATK3] = A(SPR_HOUND_S, 6, NULL, NULL, S_HOUND_RUN1),
+    [S_HOUND_PAIN] = A(SPR_HOUND_P, 5, A_Pain, NULL, S_HOUND_RUN1),
+    [S_HOUND_DIE1] = A(SPR_HOUND_D1, 6, A_Scream, NULL, S_HOUND_DIE2),
+    [S_HOUND_DIE2] = A(SPR_HOUND_D2, 6, A_Fall, NULL, S_HOUND_DEAD),
+    [S_HOUND_DEAD] = A(SPR_HOUND_D3, -1, NULL, NULL, S_NULL),
+    /* spitter: glowing windup, then a slow dodgeable fireball */
+    [S_SPIT_STND] = A(SPR_SPIT_S, 10, A_Look, NULL, S_SPIT_STND),
+    [S_SPIT_RUN1] = A(SPR_SPIT_W1, 7, NULL, T_Chase, S_SPIT_RUN2),
+    [S_SPIT_RUN2] = A(SPR_SPIT_S, 7, NULL, T_Chase, S_SPIT_RUN3),
+    [S_SPIT_RUN3] = A(SPR_SPIT_W2, 7, NULL, T_Chase, S_SPIT_RUN4),
+    [S_SPIT_RUN4] = A(SPR_SPIT_S, 7, NULL, T_Chase, S_SPIT_RUN1),
+    [S_SPIT_ATK1] = AB(SPR_SPIT_A1, 16, A_FaceTarget, NULL, S_SPIT_ATK2),
+    [S_SPIT_ATK2] = AB(SPR_SPIT_A2, 6, A_Spit, NULL, S_SPIT_ATK3),
+    [S_SPIT_ATK3] = A(SPR_SPIT_S, 8, NULL, NULL, S_SPIT_RUN1),
+    [S_SPIT_PAIN] = A(SPR_SPIT_P, 6, A_Pain, NULL, S_SPIT_RUN1),
+    [S_SPIT_DIE1] = A(SPR_SPIT_D1, 6, A_Scream, NULL, S_SPIT_DIE2),
+    [S_SPIT_DIE2] = A(SPR_SPIT_D2, 6, A_Fall, NULL, S_SPIT_DIE3),
+    [S_SPIT_DIE3] = A(SPR_SPIT_D3, 6, NULL, NULL, S_SPIT_DEAD),
+    [S_SPIT_DEAD] = A(SPR_SPIT_D4, -1, NULL, NULL, S_NULL),
+    /* brute: slow and tough, long windup into a three-round burst */
+    [S_BRUTE_STND] = A(SPR_BRUTE_S, 10, A_Look, NULL, S_BRUTE_STND),
+    [S_BRUTE_RUN1] = A(SPR_BRUTE_W1, 9, NULL, T_Chase, S_BRUTE_RUN2),
+    [S_BRUTE_RUN2] = A(SPR_BRUTE_S, 9, NULL, T_Chase, S_BRUTE_RUN3),
+    [S_BRUTE_RUN3] = A(SPR_BRUTE_W2, 9, NULL, T_Chase, S_BRUTE_RUN4),
+    [S_BRUTE_RUN4] = A(SPR_BRUTE_S, 9, NULL, T_Chase, S_BRUTE_RUN1),
+    [S_BRUTE_ATK1] = A(SPR_BRUTE_A, 20, A_FaceTarget, NULL, S_BRUTE_ATK2),
+    [S_BRUTE_ATK2] = AB(SPR_BRUTE_F, 4, A_BruteShoot, NULL, S_BRUTE_ATK3),
+    [S_BRUTE_ATK3] = A(SPR_BRUTE_A, 4, A_FaceTarget, NULL, S_BRUTE_ATK4),
+    [S_BRUTE_ATK4] = AB(SPR_BRUTE_F, 4, A_BruteShoot, NULL, S_BRUTE_ATK5),
+    [S_BRUTE_ATK5] = A(SPR_BRUTE_A, 4, A_FaceTarget, NULL, S_BRUTE_ATK6),
+    [S_BRUTE_ATK6] = AB(SPR_BRUTE_F, 4, A_BruteShoot, NULL, S_BRUTE_ATK7),
+    [S_BRUTE_ATK7] = A(SPR_BRUTE_A, 12, NULL, NULL, S_BRUTE_RUN1),
+    [S_BRUTE_PAIN] = A(SPR_BRUTE_P, 6, A_Pain, NULL, S_BRUTE_RUN1),
+    [S_BRUTE_DIE1] = A(SPR_BRUTE_D1, 8, A_Scream, NULL, S_BRUTE_DIE2),
+    [S_BRUTE_DIE2] = A(SPR_BRUTE_D2, 8, A_Fall, NULL, S_BRUTE_DIE3),
+    [S_BRUTE_DIE3] = A(SPR_BRUTE_D3, 8, NULL, NULL, S_BRUTE_DEAD),
+    [S_BRUTE_DEAD] = A(SPR_BRUTE_D4, -1, NULL, NULL, S_NULL),
+    /* the warden: two telegraphed rockets per volley; the episode ends when it falls */
+    [S_WARDEN_STND] = A(SPR_WARDEN_S, 10, A_Look, NULL, S_WARDEN_STND),
+    [S_WARDEN_RUN1] = A(SPR_WARDEN_W1, 8, NULL, T_Chase, S_WARDEN_RUN2),
+    [S_WARDEN_RUN2] = A(SPR_WARDEN_S, 8, NULL, T_Chase, S_WARDEN_RUN3),
+    [S_WARDEN_RUN3] = A(SPR_WARDEN_W2, 8, NULL, T_Chase, S_WARDEN_RUN4),
+    [S_WARDEN_RUN4] = A(SPR_WARDEN_S, 8, NULL, T_Chase, S_WARDEN_RUN1),
+    [S_WARDEN_ATK1] = A(SPR_WARDEN_A, 18, A_FaceTarget, NULL, S_WARDEN_ATK2),
+    [S_WARDEN_ATK2] = AB(SPR_WARDEN_F, 6, A_WardenRocket, NULL, S_WARDEN_ATK3),
+    [S_WARDEN_ATK3] = A(SPR_WARDEN_A, 14, A_FaceTarget, NULL, S_WARDEN_ATK4),
+    [S_WARDEN_ATK4] = AB(SPR_WARDEN_F, 6, A_WardenRocket, NULL, S_WARDEN_ATK5),
+    [S_WARDEN_ATK5] = A(SPR_WARDEN_A, 16, NULL, NULL, S_WARDEN_RUN1),
+    [S_WARDEN_PAIN] = A(SPR_WARDEN_P, 8, A_Pain, NULL, S_WARDEN_RUN1),
+    [S_WARDEN_DIE1] = A(SPR_WARDEN_D1, 12, A_Scream, NULL, S_WARDEN_DIE2),
+    [S_WARDEN_DIE2] = A(SPR_WARDEN_D2, 12, A_Fall, NULL, S_WARDEN_DIE3),
+    [S_WARDEN_DIE3] = A(SPR_WARDEN_D3, 12, NULL, NULL, S_WARDEN_DEAD),
+    [S_WARDEN_DEAD] = A(SPR_WARDEN_D4, -1, A_BossDeath, NULL, S_NULL),
+    /* missiles and explosions */
+    [S_FIREBALL1] = AB(SPR_FIREBALL1, 4, NULL, T_Missile, S_FIREBALL2),
+    [S_FIREBALL2] = AB(SPR_FIREBALL2, 4, NULL, T_Missile, S_FIREBALL1),
+    [S_ROCKET1] = AB(SPR_ROCKET, -1, NULL, T_Missile, S_ROCKET1),
+    [S_EXPL1] = AB(SPR_EXPL1, 5, A_Explode, NULL, S_EXPL2),
+    [S_EXPL2] = AB(SPR_EXPL2, 5, NULL, NULL, S_EXPL3),
+    [S_EXPL3] = AB(SPR_EXPL3, 5, NULL, NULL, S_NULL),
+    [S_BARREL] = A(SPR_BARREL, -1, NULL, NULL, S_NULL),
+    [S_BEXPL1] = A(SPR_BARREL, 5, A_Scream, NULL, S_BEXPL2),
+    [S_BEXPL2] = AB(SPR_EXPL1, 5, A_Explode, NULL, S_BEXPL3),
+    [S_BEXPL3] = AB(SPR_EXPL2, 5, NULL, NULL, S_BEXPL4),
+    [S_BEXPL4] = AB(SPR_EXPL3, 5, NULL, NULL, S_NULL),
     [S_PUFF1] = AB(SPR_PUFF1, 3, NULL, NULL, S_PUFF2),
     [S_PUFF2] = A(SPR_PUFF2, 3, NULL, NULL, S_PUFF3),
     [S_PUFF3] = A(SPR_PUFF3, 4, NULL, NULL, S_NULL),
@@ -81,9 +182,19 @@ static const state_def sdef[NUMSTATES] = {
     [S_KEYB] = AB(SPR_KEYB, -1, NULL, NULL, S_NULL),
     [S_KEYY] = AB(SPR_KEYY, -1, NULL, NULL, S_NULL),
     [S_SHOTGUN] = A(SPR_SHOTGUN, -1, NULL, NULL, S_NULL),
+    [S_CHAINGUN] = A(SPR_CHAINGUN, -1, NULL, NULL, S_NULL),
+    [S_LAUNCHER] = A(SPR_LAUNCHER, -1, NULL, NULL, S_NULL),
+    [S_ROCKETAMMO] = A(SPR_ROCKETAMMO, -1, NULL, NULL, S_NULL),
+    [S_ROCKETBOX] = A(SPR_ROCKETBOX, -1, NULL, NULL, S_NULL),
+    [S_BULLETBOX] = A(SPR_BULLETBOX, -1, NULL, NULL, S_NULL),
     [S_LAMP] = AB(SPR_LAMP, -1, NULL, NULL, S_NULL),
     [S_PILLAR] = A(SPR_PILLAR, -1, NULL, NULL, S_NULL),
-    [S_BARREL] = A(SPR_BARREL, -1, NULL, NULL, S_NULL),
+    /* player weapons */
+    [S_KNIFE] = W(SPR_KNIFE, 1, W_Ready, S_KNIFE),
+    [S_KNIFE1] = W(SPR_KNIFE_A1, 3, NULL, S_KNIFE2),
+    [S_KNIFE2] = W(SPR_KNIFE_A2, 4, W_Knife, S_KNIFE3),
+    [S_KNIFE3] = W(SPR_KNIFE_A1, 4, NULL, S_KNIFE4),
+    [S_KNIFE4] = W(SPR_KNIFE, 4, W_ReFire, S_KNIFE),
     [S_PISTOL] = W(SPR_PISTOL, 1, W_Ready, S_PISTOL),
     [S_PISTOL1] = W(SPR_PISTOL, 2, NULL, S_PISTOL2),
     [S_PISTOL2] = WB(SPR_PISTOL_F1, 3, W_FirePistol, S_PISTOL3),
@@ -97,26 +208,57 @@ static const state_def sdef[NUMSTATES] = {
     [S_SGUN5] = W(SPR_SGUN_R2, 7, NULL, S_SGUN6),
     [S_SGUN6] = W(SPR_SGUN_R1, 5, NULL, S_SGUN7),
     [S_SGUN7] = W(SPR_SGUN, 6, W_ReFire, S_SGUN),
+    [S_CGUN] = W(SPR_CGUN, 1, W_Ready, S_CGUN),
+    [S_CGUN1] = WB(SPR_CGUN_F1, 4, W_FireChaingun, S_CGUN2),
+    [S_CGUN2] = WB(SPR_CGUN_F2, 4, W_FireChaingun, S_CGUN3),
+    [S_CGUN3] = W(SPR_CGUN, 1, W_ReFire, S_CGUN),
+    [S_RL] = W(SPR_RLAUNCH, 1, W_Ready, S_RL),
+    [S_RL1] = W(SPR_RLAUNCH, 8, NULL, S_RL2),
+    [S_RL2] = WB(SPR_RLAUNCH_F, 12, W_FireRocket, S_RL3), /* refire skips S_RL3's tics, so the cooldown lives here */
+    [S_RL3] = W(SPR_RLAUNCH, 10, W_ReFire, S_RL),
 };
 
+#define ITEM(st, fl) {st, 0, 0, 0, 0, 0, 0, 0, MF_PICKUP | (fl), 0, FRACUNIT / 4, 0, 0, 0}
+#define FX(st) {st, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 const mobjinfo_t mobjinfo[MT_COUNT] = {
-    [MT_GRUNT] = {S_GRUNT_STND, S_GRUNT_RUN1, S_GRUNT_PAIN, S_GRUNT_ATK1, S_GRUNT_DIE1, 20, 170,
+    /* spawn, see, pain, attack, melee, death, health, painchance, flags, speed, radius, sounds */
+    [MT_GRUNT] = {S_GRUNT_STND, S_GRUNT_RUN1, S_GRUNT_PAIN, S_GRUNT_ATK1, 0, S_GRUNT_DIE1, 20, 170,
                   MF_SOLID | MF_SHOOTABLE | MF_COUNTKILL, FRACUNIT * 5 / 100, FRACUNIT * 3 / 10,
                   SFX_GRUNT_SEE, SFX_GRUNT_PAIN, SFX_GRUNT_DIE},
-    [MT_PUFF] = {S_PUFF1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-    [MT_BLOOD] = {S_BLOOD1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-    [MT_STIM] = {S_STIM, 0, 0, 0, 0, 0, 0, MF_PICKUP | MF_COUNTITEM, 0, FRACUNIT / 4, 0, 0, 0},
-    [MT_MEDKIT] = {S_MEDKIT, 0, 0, 0, 0, 0, 0, MF_PICKUP | MF_COUNTITEM, 0, FRACUNIT / 4, 0, 0, 0},
-    [MT_ARMOR] = {S_ARMOR, 0, 0, 0, 0, 0, 0, MF_PICKUP | MF_COUNTITEM, 0, FRACUNIT / 4, 0, 0, 0},
-    [MT_CLIP] = {S_CLIP, 0, 0, 0, 0, 0, 0, MF_PICKUP | MF_COUNTITEM, 0, FRACUNIT / 4, 0, 0, 0},
-    [MT_SHELLS] = {S_SHELLS, 0, 0, 0, 0, 0, 0, MF_PICKUP | MF_COUNTITEM, 0, FRACUNIT / 4, 0, 0, 0},
-    [MT_KEYR] = {S_KEYR, 0, 0, 0, 0, 0, 0, MF_PICKUP, 0, FRACUNIT / 4, 0, 0, 0},
-    [MT_KEYB] = {S_KEYB, 0, 0, 0, 0, 0, 0, MF_PICKUP, 0, FRACUNIT / 4, 0, 0, 0},
-    [MT_KEYY] = {S_KEYY, 0, 0, 0, 0, 0, 0, MF_PICKUP, 0, FRACUNIT / 4, 0, 0, 0},
-    [MT_SHOTGUN] = {S_SHOTGUN, 0, 0, 0, 0, 0, 0, MF_PICKUP | MF_COUNTITEM, 0, FRACUNIT / 4, 0, 0, 0},
-    [MT_LAMP] = {S_LAMP, 0, 0, 0, 0, 0, 0, 0, 0, FRACUNIT / 4, 0, 0, 0},
-    [MT_PILLAR] = {S_PILLAR, 0, 0, 0, 0, 0, 0, MF_SOLID, 0, FRACUNIT * 3 / 10, 0, 0, 0},
-    [MT_BARREL] = {S_BARREL, 0, 0, 0, 0, 0, 0, MF_SOLID, 0, FRACUNIT * 3 / 10, 0, 0, 0},
+    [MT_HOUND] = {S_HOUND_STND, S_HOUND_RUN1, S_HOUND_PAIN, 0, S_HOUND_ATK1, S_HOUND_DIE1, 25, 120,
+                  MF_SOLID | MF_SHOOTABLE | MF_COUNTKILL, FRACUNIT * 11 / 100, FRACUNIT * 3 / 10,
+                  SFX_HOUND_SEE, SFX_HOUND_PAIN, SFX_HOUND_DIE},
+    [MT_SPITTER] = {S_SPIT_STND, S_SPIT_RUN1, S_SPIT_PAIN, S_SPIT_ATK1, 0, S_SPIT_DIE1, 45, 140,
+                    MF_SOLID | MF_SHOOTABLE | MF_COUNTKILL, FRACUNIT * 5 / 100, FRACUNIT * 3 / 10,
+                    SFX_SPIT_SEE, SFX_SPIT_PAIN, SFX_SPIT_DIE},
+    [MT_BRUTE] = {S_BRUTE_STND, S_BRUTE_RUN1, S_BRUTE_PAIN, S_BRUTE_ATK1, 0, S_BRUTE_DIE1, 150, 40,
+                  MF_SOLID | MF_SHOOTABLE | MF_COUNTKILL, FRACUNIT * 4 / 100, FRACUNIT * 4 / 10,
+                  SFX_BRUTE_SEE, SFX_BRUTE_PAIN, SFX_BRUTE_DIE},
+    [MT_WARDEN] = {S_WARDEN_STND, S_WARDEN_RUN1, S_WARDEN_PAIN, S_WARDEN_ATK1, 0, S_WARDEN_DIE1, 900, 20,
+                   MF_SOLID | MF_SHOOTABLE | MF_COUNTKILL, FRACUNIT * 45 / 1000, FRACUNIT * 45 / 100,
+                   SFX_WARDEN_SEE, SFX_BRUTE_PAIN, SFX_WARDEN_DIE},
+    [MT_WROCKET] = {S_ROCKET1, 0, 0, 0, 0, S_EXPL1, 0, 0, MF_MISSILE, FRACUNIT * 2 / 10, FRACUNIT / 8, SFX_ROCKET, 0, SFX_EXPLODE},
+    [MT_FIREBALL] = {S_FIREBALL1, 0, 0, 0, 0, S_EXPL1, 0, 0, MF_MISSILE, FRACUNIT * 16 / 100, FRACUNIT / 8, SFX_FIREBALL, 0, SFX_EXPLODE},
+    [MT_ROCKET] = {S_ROCKET1, 0, 0, 0, 0, S_EXPL1, 0, 0, MF_MISSILE, FRACUNIT * 35 / 100, FRACUNIT / 8, SFX_ROCKET, 0, SFX_EXPLODE},
+    [MT_PUFF] = FX(S_PUFF1),
+    [MT_BLOOD] = FX(S_BLOOD1),
+    [MT_STIM] = ITEM(S_STIM, MF_COUNTITEM),
+    [MT_MEDKIT] = ITEM(S_MEDKIT, MF_COUNTITEM),
+    [MT_ARMOR] = ITEM(S_ARMOR, MF_COUNTITEM),
+    [MT_CLIP] = ITEM(S_CLIP, MF_COUNTITEM),
+    [MT_SHELLS] = ITEM(S_SHELLS, MF_COUNTITEM),
+    [MT_KEYR] = ITEM(S_KEYR, 0),
+    [MT_KEYB] = ITEM(S_KEYB, 0),
+    [MT_KEYY] = ITEM(S_KEYY, 0),
+    [MT_SHOTGUN] = ITEM(S_SHOTGUN, MF_COUNTITEM),
+    [MT_CHAINGUN] = ITEM(S_CHAINGUN, MF_COUNTITEM),
+    [MT_LAUNCHER] = ITEM(S_LAUNCHER, MF_COUNTITEM),
+    [MT_ROCKETAMMO] = ITEM(S_ROCKETAMMO, MF_COUNTITEM),
+    [MT_ROCKETBOX] = ITEM(S_ROCKETBOX, MF_COUNTITEM),
+    [MT_BULLETBOX] = ITEM(S_BULLETBOX, MF_COUNTITEM),
+    [MT_LAMP] = {S_LAMP, 0, 0, 0, 0, 0, 0, 0, 0, 0, FRACUNIT / 4, 0, 0, 0},
+    [MT_PILLAR] = {S_PILLAR, 0, 0, 0, 0, 0, 0, 0, MF_SOLID, 0, FRACUNIT * 3 / 10, 0, 0, 0},
+    [MT_BARREL] = {S_BARREL, 0, 0, 0, 0, S_BEXPL1, 20, 0, MF_SOLID | MF_SHOOTABLE, 0, FRACUNIT * 3 / 10, 0, 0, SFX_EXPLODE},
 };
 
 /* public view of the state table for the renderer */
@@ -125,9 +267,13 @@ int g_state_bright(int st) { return sdef[st].bright; }
 
 typedef struct { int ammo, per, ready, attack; } weaponinfo_t;
 static const weaponinfo_t weaponinfo[WP_COUNT] = {
+    [WP_KNIFE] = {AM_NONE, 0, S_KNIFE, S_KNIFE1},
     [WP_PISTOL] = {AM_BULLET, 1, S_PISTOL, S_PISTOL1},
     [WP_SHOTGUN] = {AM_SHELL, 1, S_SGUN, S_SGUN1},
+    [WP_CHAINGUN] = {AM_BULLET, 1, S_CGUN, S_CGUN1},
+    [WP_LAUNCHER] = {AM_ROCKET, 1, S_RL, S_RL1},
 };
+int g_weapon_ammo(int w) { return weaponinfo[w].ammo; }
 
 /* ---------------------------------------------------------------- helpers */
 
@@ -455,6 +601,7 @@ static void damage_actor(actor_t *a, int dmg)
         set_state(a, mobjinfo[a->type].deathstate);
         return;
     }
+    if (!(a->flags & MF_COUNTKILL)) return;
     if (P_Random() < mobjinfo[a->type].painchance) {
         a->awake = 1;
         set_state(a, mobjinfo[a->type].painstate);
@@ -463,8 +610,8 @@ static void damage_actor(actor_t *a, int dmg)
     wake(a);
 }
 
-/* Instant-hit trace from (x,y) along ang. */
-static void hitscan(fixed_t x, fixed_t y, angle_t ang, fixed_t range, int dmg)
+/* Instant-hit trace from (x,y) along ang. Returns 0 = nothing, 1 = wall, 2 = something shootable. */
+static int hitscan(fixed_t x, fixed_t y, angle_t ang, fixed_t range, int dmg)
 {
     fixed_t dx = fcos(ang), dy = fsin(ang);
     const fixed_t step = FRACUNIT / 16;
@@ -490,11 +637,31 @@ static void hitscan(fixed_t x, fixed_t y, angle_t ang, fixed_t range, int dmg)
     }
     if (best && (best->flags & MF_SHOOTABLE)) {
         fixed_t bd = bestd - FRACUNIT / 8;
-        spawn(MT_BLOOD, x + fmul(dx, bd), y + fmul(dy, bd));
+        if (best->flags & MF_COUNTKILL) spawn(MT_BLOOD, x + fmul(dx, bd), y + fmul(dy, bd));
+        else spawn(MT_PUFF, x + fmul(dx, bd), y + fmul(dy, bd));
         damage_actor(best, dmg);
-    } else {
-        fixed_t pd = bestd - step;
-        spawn(MT_PUFF, x + fmul(dx, pd), y + fmul(dy, pd));
+        return 2;
+    }
+    if (!best && walld >= range) return 0;
+    fixed_t pd = bestd - step;
+    spawn(MT_PUFF, x + fmul(dx, pd), y + fmul(dy, pd));
+    return 1;
+}
+
+/* Splash damage around (x,y): full at the centre, none at 2 tiles; walls block it. */
+static void radius_attack(fixed_t x, fixed_t y, int maxdmg)
+{
+    const fixed_t range = itof(2);
+    if (maxdmg <= 0) return;
+    player_t *p = &g.player;
+    fixed_t d = fhypot(p->x - x, p->y - y);
+    if (d < range && line_clear(x, y, p->x, p->y)) damage_player(maxdmg - fmul(maxdmg, fdiv(d, range)));
+    for (int i = 0; i < MAXACTORS; i++) {
+        actor_t *a = &g.actors[i];
+        if (!a->inuse || !(a->flags & MF_SHOOTABLE)) continue;
+        d = fhypot(a->x - x, a->y - y) - radius_of(a);
+        if (d < 0) d = 0;
+        if (d < range && line_clear(x, y, a->x, a->y)) damage_actor(a, maxdmg - fmul(maxdmg, fdiv(d, range)));
     }
 }
 
@@ -596,14 +763,23 @@ static bool check_attack(actor_t *a)
     return P_Random() >= d;
 }
 
+static bool in_melee_range(actor_t *a)
+{
+    fixed_t reach = radius_of(a) + PLAYER_RADIUS + FRACUNIT / 4;
+    return !g.player.dead && boxes_overlap(a->x, a->y, reach, g.player.x, g.player.y, 0);
+}
+
 static void T_Chase(actor_t *a)
 {
+    const mobjinfo_t *info = &mobjinfo[a->type];
     if (a->reactiontime) a->reactiontime--;
-    if (g.player.dead) {
-        a->movecount = 0;
+    if (g.player.dead) a->movecount = 0;
+    if (info->meleestate && in_melee_range(a)) {
+        set_state(a, info->meleestate);
+        return;
     }
     if (--a->movecount < 0) {
-        if (!g.player.dead && a->reactiontime == 0 && check_attack(a)) {
+        if (info->attackstate && !g.player.dead && a->reactiontime == 0 && check_attack(a)) {
             set_state(a, mobjinfo[a->type].attackstate);
             a->movecount = 4 + (P_Random() & 15);
             return;
@@ -631,6 +807,101 @@ static void A_GruntShoot(actor_t *a)
     damage_player(dmg);
 }
 
+static void A_BruteShoot(actor_t *a)
+{
+    A_FaceTarget(a);
+    sound_at(SFX_CHAINGUN, a->x, a->y);
+    if (!sees_player(a, false)) return;
+    player_t *p = &g.player;
+    int chance = 170 - ftoi(fhypot(p->x - a->x, p->y - a->y)) * 12;
+    if (fhypot(p->momx, p->momy) > FRACUNIT / 20) chance -= 50;
+    if (chance < 24) chance = 24;
+    if (P_Random() < chance) damage_player(3 + P_Random() % 9);
+}
+
+static void A_Bite(actor_t *a)
+{
+    A_FaceTarget(a);
+    sound_at(SFX_HOUND_BITE, a->x, a->y);
+    if (in_melee_range(a)) damage_player(4 + P_Random() % 9);
+}
+
+static void spawn_missile(int type, fixed_t x, fixed_t y, angle_t ang, int owner)
+{
+    fixed_t c = fcos(ang), s = fsin(ang), ahead = FRACUNIT * 4 / 10;
+    actor_t *m = spawn(type, x + fmul(c, ahead), y + fmul(s, ahead));
+    if (!m) return;
+    m->owner = owner;
+    m->angle = ang;
+    m->momx = fmul(c, mobjinfo[type].speed);
+    m->momy = fmul(s, mobjinfo[type].speed);
+    sound_at(mobjinfo[type].seesound, x, y);
+}
+
+static void A_WardenRocket(actor_t *a)
+{
+    A_FaceTarget(a);
+    spawn_missile(MT_WROCKET, a->x, a->y, a->angle, (int)(a - g.actors));
+}
+
+static void A_BossDeath(actor_t *a)
+{
+    (void)a;
+    message("THE WARDEN HAS FALLEN!");
+    if (!g.exiting) g.exiting = 1;
+}
+
+static void A_Spit(actor_t *a)
+{
+    A_FaceTarget(a);
+    spawn_missile(MT_FIREBALL, a->x, a->y, a->angle, (int)(a - g.actors));
+}
+
+static void explode_missile(actor_t *m)
+{
+    m->momx = m->momy = 0;
+    m->flags &= ~MF_MISSILE;
+    sound_at(mobjinfo[m->type].deathsound, m->x, m->y);
+    set_state(m, mobjinfo[m->type].deathstate);
+}
+
+static void A_Explode(actor_t *a) { radius_attack(a->x, a->y, a->type == MT_FIREBALL ? 0 : a->type == MT_WROCKET ? 40 : 128); }
+
+/* Missiles move in two half steps so fast rockets don't skip through thin things. */
+static void T_Missile(actor_t *m)
+{
+    if (!(m->flags & MF_MISSILE)) return;
+    for (int step = 0; step < 2; step++) {
+        fixed_t nx = m->x + m->momx / 2, ny = m->y + m->momy / 2;
+        if (tile_blocks_move(ftoi(nx), ftoi(ny))) {
+            explode_missile(m);
+            return;
+        }
+        fixed_t r = radius_of(m);
+        bool hostile = m->owner >= 0; /* fired by a monster */
+        if (hostile && !g.player.dead && boxes_overlap(nx, ny, r, g.player.x, g.player.y, PLAYER_RADIUS)) {
+            m->x = nx;
+            m->y = ny;
+            damage_player((m->type == MT_WROCKET ? 5 : 3) * (1 + P_Random() % 8));
+            explode_missile(m);
+            return;
+        }
+        for (int i = 0; i < MAXACTORS; i++) {
+            actor_t *o = &g.actors[i];
+            if (!o->inuse || o == m || i == m->owner || !(o->flags & (MF_SOLID | MF_SHOOTABLE))) continue;
+            if (hostile && (o->flags & MF_COUNTKILL)) continue; /* monster missiles pass through monsters */
+            if (!boxes_overlap(nx, ny, r, o->x, o->y, radius_of(o))) continue;
+            m->x = nx;
+            m->y = ny;
+            damage_actor(o, (m->type == MT_ROCKET ? 20 : 3) * (1 + P_Random() % 8));
+            explode_missile(m);
+            return;
+        }
+        m->x = nx;
+        m->y = ny;
+    }
+}
+
 static void A_Pain(actor_t *a) { sound_at(mobjinfo[a->type].painsound, a->x, a->y); }
 static void A_Scream(actor_t *a) { sound_at(mobjinfo[a->type].deathsound, a->x, a->y); }
 
@@ -638,8 +909,9 @@ static void A_Fall(actor_t *a)
 {
     a->flags &= ~MF_SOLID;
     a->flags |= MF_CORPSE;
-    if (a->type == MT_GRUNT) {
-        actor_t *c = spawn(MT_CLIP, a->x, a->y);
+    int drop = a->type == MT_GRUNT ? MT_CLIP : a->type == MT_BRUTE ? MT_BULLETBOX : -1;
+    if (drop >= 0) {
+        actor_t *c = spawn(drop, a->x, a->y);
         if (c) c->flags = (c->flags & ~MF_COUNTITEM) | MF_DROPPED;
     }
 }
@@ -657,17 +929,26 @@ static void set_wstate(player_t *p, int st)
     } while (p->wtics == 0);
 }
 
-static int best_weapon(player_t *p)
+static bool weapon_has_ammo(const player_t *p, int w)
 {
-    for (int w = WP_COUNT - 1; w >= 0; w--)
-        if ((p->weaponowned & (1 << w)) && p->ammo[weaponinfo[w].ammo] >= weaponinfo[w].per) return w;
-    return WP_PISTOL;
+    return weaponinfo[w].ammo == AM_NONE || p->ammo[weaponinfo[w].ammo] >= weaponinfo[w].per;
 }
 
-static bool has_ammo(player_t *p)
+/* auto-switch when empty; never picks the launcher, so nobody blows themselves up by surprise */
+static int best_weapon(player_t *p)
+{
+    static const int pref[] = {WP_CHAINGUN, WP_SHOTGUN, WP_PISTOL, WP_KNIFE};
+    for (int i = 0; i < 4; i++)
+        if ((p->weaponowned & (1 << pref[i])) && weapon_has_ammo(p, pref[i])) return pref[i];
+    return WP_KNIFE;
+}
+
+static bool has_ammo(player_t *p) { return weapon_has_ammo(p, p->readyweapon); }
+
+static void use_ammo(player_t *p)
 {
     const weaponinfo_t *wi = &weaponinfo[p->readyweapon];
-    return p->ammo[wi->ammo] >= wi->per;
+    if (wi->ammo != AM_NONE) p->ammo[wi->ammo] -= wi->per;
 }
 
 static void W_Ready(player_t *p)
@@ -691,9 +972,36 @@ static void W_ReFire(player_t *p)
         p->refire = 0;
 }
 
+static void W_Knife(player_t *p)
+{
+    int hit = hitscan(p->x, p->y, p->angle + (angle_t)((P_Random() - P_Random()) * (1 << 18)), FRACUNIT * 11 / 10,
+                      2 * (1 + P_Random() % 10));
+    sound_local(hit == 2 ? SFX_KNIFEHIT : SFX_KNIFE);
+}
+
+static void W_FireChaingun(player_t *p)
+{
+    if (!has_ammo(p)) return;
+    use_ammo(p);
+    p->flash = 2;
+    sound_local(SFX_CHAINGUN);
+    make_noise(p->x, p->y);
+    angle_t a = p->angle;
+    if (p->refire) a += (angle_t)((P_Random() - P_Random()) * (1 << 18));
+    hitscan(p->x, p->y, a, itof(48), 5 * (1 + P_Random() % 3));
+}
+
+static void W_FireRocket(player_t *p)
+{
+    use_ammo(p);
+    p->flash = 3;
+    make_noise(p->x, p->y);
+    spawn_missile(MT_ROCKET, p->x, p->y, p->angle, -1);
+}
+
 static void W_FirePistol(player_t *p)
 {
-    p->ammo[AM_BULLET]--;
+    use_ammo(p);
     p->flash = 3;
     sound_local(SFX_PISTOL);
     make_noise(p->x, p->y);
@@ -704,7 +1012,7 @@ static void W_FirePistol(player_t *p)
 
 static void W_FireShotgun(player_t *p)
 {
-    p->ammo[AM_SHELL]--;
+    use_ammo(p);
     p->flash = 4;
     sound_local(SFX_SHOTGUN);
     make_noise(p->x, p->y);
@@ -752,7 +1060,8 @@ void g_new_player(player_t *p)
     p->ammo[AM_BULLET] = 50;
     p->maxammo[AM_BULLET] = 200;
     p->maxammo[AM_SHELL] = 50;
-    p->weaponowned = 1 << WP_PISTOL;
+    p->maxammo[AM_ROCKET] = 50;
+    p->weaponowned = 1 << WP_KNIFE | 1 << WP_PISTOL;
     p->readyweapon = p->pendingweapon = WP_PISTOL;
     p->wstate = S_PISTOL;
 }
@@ -854,18 +1163,35 @@ static void touch_item(player_t *p, actor_t *a)
         sfx = SFX_WPNUP;
         break;
     }
-    case MT_SHOTGUN: {
-        bool had = p->weaponowned & (1 << WP_SHOTGUN);
-        give_ammo(p, AM_SHELL, 8, &took);
-        if (!had) {
-            p->weaponowned |= 1 << WP_SHOTGUN;
-            p->pendingweapon = WP_SHOTGUN;
+    case MT_SHOTGUN: case MT_CHAINGUN: case MT_LAUNCHER: {
+        static const struct { int mt, wp, ammo, n; const char *msg; } wp[] = {
+            {MT_SHOTGUN, WP_SHOTGUN, AM_SHELL, 8, "YOU GOT THE SHOTGUN!"},
+            {MT_CHAINGUN, WP_CHAINGUN, AM_BULLET, 20, "YOU GOT THE CHAINGUN!"},
+            {MT_LAUNCHER, WP_LAUNCHER, AM_ROCKET, 2, "YOU GOT THE ROCKET LAUNCHER!"},
+        };
+        int i = a->type == MT_SHOTGUN ? 0 : a->type == MT_CHAINGUN ? 1 : 2;
+        give_ammo(p, wp[i].ammo, wp[i].n, &took);
+        if (!(p->weaponowned & (1 << wp[i].wp))) {
+            p->weaponowned |= 1 << wp[i].wp;
+            p->pendingweapon = wp[i].wp;
             took = true;
         }
-        msg = "YOU GOT THE SHOTGUN!";
+        msg = wp[i].msg;
         sfx = SFX_WPNUP;
         break;
     }
+    case MT_ROCKETAMMO:
+        give_ammo(p, AM_ROCKET, 1, &took);
+        msg = "PICKED UP A ROCKET";
+        break;
+    case MT_ROCKETBOX:
+        give_ammo(p, AM_ROCKET, 5, &took);
+        msg = "PICKED UP A CRATE OF ROCKETS";
+        break;
+    case MT_BULLETBOX:
+        give_ammo(p, AM_BULLET, dropped ? 25 : 50, &took);
+        msg = "PICKED UP A BOX OF BULLETS";
+        break;
     default: return;
     }
     if (!took) return;
@@ -1013,9 +1339,14 @@ bool g_load_level(const char *text, int skill, int levelnum, const player_t *car
     g.ceiltex = FT_CEIL_PANEL;
     memset(g.doorat, -1, sizeof g.doorat);
 
+    /* header lines, then "map:" rows, then an optional "skill:" overlay of the same shape where
+     * 1 = easy only, 2 = medium and hard, 3 = hard only (applies to the thing in that cell) */
+    static char rows[MAPH][MAPW + 1], skillrows[MAPH][MAPW + 1];
+    memset(rows, 0, sizeof rows);
+    memset(skillrows, 0, sizeof skillrows);
     const char *s = text;
     char line[256];
-    int row = 0, inmap = 0, facing = 0;
+    int row = 0, srow = 0, section = 0, facing = 0;
     while (*s) {
         int n = 0;
         while (*s && *s != '\n') {
@@ -1024,54 +1355,69 @@ bool g_load_level(const char *text, int skill, int levelnum, const player_t *car
         }
         if (*s) s++;
         line[n] = 0;
-        if (!inmap) {
-            char key[32], val[64];
-            if (line[0] == ';' || !line[0]) continue;
-            if (!strcmp(line, "map:")) {
-                inmap = 1;
-                continue;
-            }
-            if (sscanf(line, "%31[^:]: %63[^\n]", key, val) != 2) continue;
-            if (!strcmp(key, "name")) snprintf(g.levelname, sizeof g.levelname, "%.31s", val);
-            else if (!strcmp(key, "floor")) g.floortex = lookup(val, floors, FT_COUNT);
-            else if (!strcmp(key, "ceil")) g.ceiltex = lookup(val, floors, FT_COUNT);
-            else if (!strcmp(key, "ambient")) g.ambient = atoi(val);
-            else if (!strcmp(key, "par")) g.par = atoi(val);
-            else if (!strcmp(key, "facing")) facing = atoi(val);
+        if (!strcmp(line, "map:")) {
+            section = 1;
             continue;
         }
-        if (row >= MAPH) break;
-        if (n > g.w) g.w = n > MAPW ? MAPW : n;
-        for (int x = 0; x < n && x < MAPW; x++) {
-            char ch = line[x];
-            fixed_t cx = itof(x) + FRACUNIT / 2, cy = itof(row) + FRACUNIT / 2;
+        if (!strcmp(line, "skill:")) {
+            section = 2;
+            continue;
+        }
+        if (section == 1 && row < MAPH) {
+            snprintf(rows[row++], MAPW + 1, "%.64s", line);
+            continue;
+        }
+        if (section == 2 && srow < MAPH) {
+            snprintf(skillrows[srow++], MAPW + 1, "%.64s", line);
+            continue;
+        }
+        char key[32], val[64];
+        if (line[0] == ';' || sscanf(line, "%31[^:]: %63[^\n]", key, val) != 2) continue;
+        if (!strcmp(key, "name")) snprintf(g.levelname, sizeof g.levelname, "%.31s", val);
+        else if (!strcmp(key, "music")) snprintf(g.music, sizeof g.music, "%.31s", val);
+        else if (!strcmp(key, "floor")) g.floortex = lookup(val, floors, FT_COUNT);
+        else if (!strcmp(key, "ceil")) g.ceiltex = lookup(val, floors, FT_COUNT);
+        else if (!strcmp(key, "ambient")) g.ambient = atoi(val);
+        else if (!strcmp(key, "par")) g.par = atoi(val);
+        else if (!strcmp(key, "facing")) facing = atoi(val);
+    }
+    for (int y = 0; y < row; y++) {
+        int n = (int)strlen(rows[y]);
+        if (n > g.w) g.w = n;
+        for (int x = 0; x < n; x++) {
+            char ch = rows[y][x], sk = skillrows[y][x];
+            fixed_t cx = itof(x) + FRACUNIT / 2, cy = itof(y) + FRACUNIT / 2;
             static const char wallch[] = "#WMBGT";
             const char *w = ch ? strchr(wallch, ch) : NULL;
             if (w) {
-                g.tile[row][x] = TL_WALL;
-                g.tex[row][x] = (uint8_t)(w - wallch);
+                g.tile[y][x] = TL_WALL;
+                g.tex[y][x] = (uint8_t)(w - wallch);
                 continue;
             }
             switch (ch) {
-            case 'X': g.tile[row][x] = TL_EXIT; g.tex[row][x] = WT_EXIT; break;
-            case '$': g.tile[row][x] = TL_PUSH; g.totalsecrets++; break;
+            case 'X': g.tile[y][x] = TL_EXIT; g.tex[y][x] = WT_EXIT; break;
+            case '$': g.tile[y][x] = TL_PUSH; g.totalsecrets++; break;
             case 'D': case 'R': case 'U': case 'Y':
                 if (g.ndoors < MAXDOORS) {
-                    g.tile[row][x] = TL_DOOR;
-                    g.doorat[row][x] = (int8_t)g.ndoors;
+                    g.tile[y][x] = TL_DOOR;
+                    g.doorat[y][x] = (int8_t)g.ndoors;
                     door_t *d = &g.doors[g.ndoors++];
                     d->tx = (uint8_t)x;
-                    d->ty = (uint8_t)row;
+                    d->ty = (uint8_t)y;
                     d->lock = ch == 'R' ? 1 : ch == 'U' ? 2 : ch == 'Y' ? 3 : 0;
                 }
                 break;
             case 'P': g.player.x = cx; g.player.y = cy; break;
             default: {
-                static const char thingch[] = "ghHacs123Slob";
+                static const char thingch[] = "ghHacs123SlobdfkCLrqmw";
                 static const int thingmt[] = {MT_GRUNT, MT_STIM, MT_MEDKIT, MT_ARMOR, MT_CLIP, MT_SHELLS,
-                                              MT_KEYR, MT_KEYB, MT_KEYY, MT_SHOTGUN, MT_LAMP, MT_PILLAR, MT_BARREL};
+                                              MT_KEYR, MT_KEYB, MT_KEYY, MT_SHOTGUN, MT_LAMP, MT_PILLAR, MT_BARREL,
+                                              MT_HOUND, MT_SPITTER, MT_BRUTE, MT_CHAINGUN, MT_LAUNCHER,
+                                              MT_ROCKETAMMO, MT_ROCKETBOX, MT_BULLETBOX, MT_WARDEN};
                 const char *t = ch ? strchr(thingch, ch) : NULL;
                 if (!t) break;
+                if ((sk == '1' && skill != SK_EASY) || (sk == '2' && skill == SK_EASY) || (sk == '3' && skill != SK_HARD))
+                    break;
                 actor_t *a = spawn(thingmt[t - thingch], cx, cy);
                 if (!a) break;
                 if (a->flags & MF_COUNTKILL) g.totalkills++;
@@ -1079,7 +1425,6 @@ bool g_load_level(const char *text, int skill, int levelnum, const player_t *car
             }
             }
         }
-        row++;
     }
     g.h = row;
     if (!g.w || !g.h || !g.player.x) {

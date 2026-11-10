@@ -20,7 +20,7 @@ static float fx(fixed_t v) { return v / 65536.0f; }
 
 static int light_for(float dist)
 {
-    int l = g.ambient + (int)(dist * 2.2f) - (g.player.flash ? 6 : 0);
+    int l = g.ambient + (int)(dist * 1.6f) - (g.player.flash ? 6 : 0);
     return l < 0 ? 0 : l >= NLIGHTS ? NLIGHTS - 1 : l;
 }
 
@@ -253,8 +253,9 @@ void r_draw_hud(uint8_t *fb)
     for (int i = 0; i < 4; i++)
         for (int y = VIEWH + 3; y < SCREENH - 3; y++) fb[y * SCREENW + seps[i]] = RAMP(R_STEEL, 2);
 
-    static const int wammo[WP_COUNT] = {AM_BULLET, AM_SHELL};
-    hud_number(fb, 66, VIEWH + 6, p->ammo[wammo[p->readyweapon]], "");
+    int am = g_weapon_ammo(p->readyweapon);
+    if (am == AM_NONE) font_draw(fb, 42, VIEWH + 6, "--", RAMP(R_RED, 13), 2, 1);
+    else hud_number(fb, 66, VIEWH + 6, p->ammo[am], "");
     font_draw(fb, 8, VIEWH + 23, "AMMO", RAMP(R_GRAY, 10), 1, 1);
     hud_number(fb, 146, VIEWH + 6, p->health, "%");
     font_draw(fb, 80, VIEWH + 23, "HEALTH", RAMP(R_GRAY, 10), 1, 1);
@@ -263,7 +264,7 @@ void r_draw_hud(uint8_t *fb)
     for (int w = 0; w < WP_COUNT; w++) {
         char s[2] = {(char)('1' + w), 0};
         uint8_t c = !(p->weaponowned & (1 << w)) ? RAMP(R_GRAY, 4) : w == p->readyweapon ? RAMP(R_YELLOW, 14) : RAMP(R_GRAY, 12);
-        font_draw(fb, 240 + (w % 3) * 11, VIEWH + 6 + (w / 3) * 10, s, c, 1, 1);
+        font_draw(fb, 236 + w * 8, VIEWH + 9, s, c, 1, 1);
     }
     font_draw(fb, 238, VIEWH + 23, "ARMS", RAMP(R_GRAY, 10), 1, 1);
     static const int keyramp[3] = {R_RED, R_BLUE, R_YELLOW};

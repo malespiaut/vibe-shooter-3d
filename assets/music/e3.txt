@@ -1,0 +1,18 @@
+; "Barracks": G minor march
+tempo: 112
+pattern A
+bass: g1 . g2 . g1 . g2 . d2 . d3 . d2 . d3 .
+lead: . . . . . . . . . . . . . . . .
+pad:  g3 . . . . . . . . . . . . . . -
+drum: k . s s k . s . k . s s k s s s
+pattern B
+bass: g1 . g2 . g1 . g2 . d2 . d3 . d2 . d3 .
+lead: g4 . . g4 a#4 . . a4 g4 . f#4 . d4 . . .
+pad:  a#3 . . . . . . . a3 . . . . . . .
+drum: k . s s k . s . k . s s k s s s
+pattern C
+bass: d#2 . d#3 . d#2 . d#3 . d2 . d3 . d2 . f#2 .
+lead: a#4 . c5 . d5 . . . c5 . a#4 . a4 . . -
+pad:  g3 . . . . . . . f#3 . . . . . . .
+drum: k . s . k k s . k . s . k . o .
+order: A B B C B C

@@ -125,6 +125,23 @@ static void machine(int id, float secs, float hum, float clunk, float gain)
     finish(id, b, n, gain);
 }
 
+/* filtered-noise sweep: whooshes, swishes, hisses */
+static void whoosh(int id, float secs, float f0, float f1, float q, float gain)
+{
+    int n;
+    float *b = alloc_buf(secs, &n);
+    for (int i = 0; i < n; i++) {
+        float t = (float)i / n;
+        biquad bp = bandpass(f0 + (f1 - f0) * t, q); /* recomputed per sample: fine at startup */
+        static float x1, x2, y1, y2;
+        bp.x1 = x1; bp.x2 = x2; bp.y1 = y1; bp.y2 = y2;
+        float v = bq(&bp, noise());
+        x1 = bp.x1; x2 = bp.x2; y1 = bp.y1; y2 = bp.y2;
+        b[i] = v * sinf(t * 3.14159f) * (1 - t * 0.5f);
+    }
+    finish(id, b, n, gain);
+}
+
 static void make_sfx(void)
 {
     gunshot(SFX_PISTOL, 0.4f, 11, 7000, 140, 1.0f, 1.0f);
@@ -154,6 +171,24 @@ static void make_sfx(void)
     machine(SFX_DOOR_CLOSE, 0.55f, 50, 1.2f, 0.7f);
     machine(SFX_PUSHWALL, 1.6f, 35, 0.8f, 0.7f);
     gunshot(SFX_NOWAY, 0.18f, 30, 600, 80, 1.2f, 0.55f);
+    voice(SFX_HOUND_SEE, 0.6f, 95, 75, 500, 900, 0.9f, 15, 0.85f);
+    gunshot(SFX_HOUND_BITE, 0.15f, 40, 3000, 300, 0.4f, 0.7f);
+    voice(SFX_HOUND_PAIN, 0.22f, 520, 700, 900, 1600, 0.3f, 20, 0.75f);
+    voice(SFX_HOUND_DIE, 0.75f, 450, 110, 850, 1500, 0.4f, 25, 0.85f);
+    voice(SFX_SPIT_SEE, 0.5f, 300, 360, 1200, 2500, 1.0f, 8, 0.75f);
+    voice(SFX_SPIT_PAIN, 0.25f, 360, 250, 1300, 2600, 0.8f, 10, 0.75f);
+    voice(SFX_SPIT_DIE, 1.0f, 330, 80, 1100, 2300, 0.9f, 12, 0.85f);
+    whoosh(SFX_FIREBALL, 0.5f, 300, 1500, 2, 0.7f);
+    gunshot(SFX_EXPLODE, 1.3f, 3, 2500, 55, 1.6f, 1.0f);
+    voice(SFX_BRUTE_SEE, 0.8f, 85, 65, 420, 780, 0.5f, 5, 0.95f);
+    voice(SFX_BRUTE_PAIN, 0.3f, 110, 80, 450, 820, 0.5f, 8, 0.85f);
+    voice(SFX_BRUTE_DIE, 1.5f, 100, 35, 400, 760, 0.6f, 6, 0.95f);
+    gunshot(SFX_CHAINGUN, 0.22f, 22, 7500, 160, 0.9f, 0.9f);
+    gunshot(SFX_ROCKET, 0.7f, 5, 1800, 70, 1.3f, 0.9f);
+    whoosh(SFX_KNIFE, 0.16f, 1500, 5000, 1.5f, 0.6f);
+    gunshot(SFX_KNIFEHIT, 0.15f, 30, 900, 110, 1.0f, 0.75f);
+    voice(SFX_WARDEN_SEE, 1.2f, 70, 50, 350, 700, 0.7f, 4, 1.0f);
+    voice(SFX_WARDEN_DIE, 2.5f, 80, 25, 330, 650, 0.8f, 5, 1.0f);
 }
 
 /* ---------------------------------------------------------------- music */

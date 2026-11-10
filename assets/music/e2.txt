@@ -1,0 +1,18 @@
+; "Depot": D minor, steady and wary
+tempo: 120
+pattern A
+bass: d2 . . d2 . . d2 . f2 . . f2 . . e2 .
+lead: . . . . . . . . . . . . . . . .
+pad:  d4 . . . . . . . . . . . c4 . . .
+drum: k . h . s . h . k . h k s . h .
+pattern B
+bass: d2 . . d2 . . d2 . f2 . . f2 . . e2 .
+lead: a4 . . . g4 . f4 . e4 . . . d4 . . -
+pad:  f3 . . . . . . . a3 . . . . . . .
+drum: k . h . s . h . k . h k s . h h
+pattern C
+bass: a#1 . . a#1 . . a#1 . c2 . . c2 . . a1 .
+lead: f4 . g4 . a4 . c5 . a#4 . a4 . g4 . e4 .
+pad:  d4 . . . . . . . e4 . . . . . . .
+drum: k . h . s . h k k . h . s . o .
+order: A A B B C B C A

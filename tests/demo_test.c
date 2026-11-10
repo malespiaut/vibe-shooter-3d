@@ -6,7 +6,7 @@
 #include "demo.h"
 #include "game.h"
 
-#define EXPECTED 0x9732aa74u /* update with: demo_test --print */
+#define EXPECTED 0x5bce9303u /* update with: demo_test --print */
 
 static char *read_text(const char *path)
 {

@@ -12,7 +12,9 @@
 #include "render.h"
 #include "sound.h"
 
-static const char *levels[] = {"assets/levels/e1m1.txt"};
+static const char *levels[] = {"assets/levels/e1m1.txt", "assets/levels/e1m2.txt", "assets/levels/e1m3.txt",
+                               "assets/levels/e1m4.txt", "assets/levels/e1m5.txt", "assets/levels/e1m6.txt",
+                               "assets/levels/e1m7.txt", "assets/levels/e1m8.txt"};
 #define NUMLEVELS (int)(sizeof levels / sizeof levels[0])
 
 static uint8_t fb[SCREENW * SCREENH];
@@ -75,7 +77,18 @@ static void load_config(void)
     free(text);
 }
 
-static int held(int a) { return in.down[binds[a][0]] || (binds[a][1] && in.down[binds[a][1]]); }
+/* presses since the last tic, so a tap shorter than a tic still counts */
+static uint8_t tapped[A_COUNT], weapon_tap;
+
+static int held(int a) { return tapped[a] || in.down[binds[a][0]] || (binds[a][1] && in.down[binds[a][1]]); }
+
+static void latch_taps(void)
+{
+    for (int a = 0; a < A_COUNT; a++)
+        if (in.pressed[binds[a][0]] || (binds[a][1] && in.pressed[binds[a][1]])) tapped[a] = 1;
+    for (int w = 0; w < WP_COUNT; w++)
+        if (in.pressed[PK_1 + w]) weapon_tap = (uint8_t)(w + 1);
+}
 
 static const char *key_name(int k)
 {
@@ -144,7 +157,9 @@ static bool start_level(int num, int skill, const player_t *inv)
     carry = g.player;
     mode = GM_LEVEL;
     mouse_acc = 0;
-    play_music("assets/music/e1.txt");
+    char path[64];
+    snprintf(path, sizeof path, "assets/music/%s", g.music[0] ? g.music : "e1.txt");
+    play_music(path);
     return true;
 }
 
@@ -355,10 +370,10 @@ static void draw_finale(void)
 {
     memset(fb, RAMP(R_GRAY, 0), sizeof fb);
     static const char *lines[] = {
-        "THE GATE OF IRONHOLD HAS FALLEN.", "", "BUT THE FORTRESS GOES DEEPER", "THAN ANYONE KNEW...", "",
-        "THANK YOU FOR PLAYING.",
+        "THE WARDEN LIES IN THE RUBBLE", "OF HIS OWN KEEP.", "", "IRONHOLD'S OUTER WALLS ARE BREACHED.",
+        "BUT BENEATH THE KEEP, STAIRS", "DESCEND INTO THE DARK...", "", "THANK YOU FOR PLAYING.",
     };
-    for (int i = 0; i < 6; i++)
+    for (int i = 0; i < 8; i++)
         if (fade > i * 30) font_draw_center(fb, 70 + i * 14, lines[i], RAMP(R_GRAY, 13), 1);
 }
 
@@ -380,8 +395,9 @@ static void build_cmd(ticcmd_t *cmd)
     cmd->turn = (int16_t)clampi(turn, -32000, 32000);
     if (held(A_FIRE)) cmd->buttons |= BT_ATTACK;
     if (held(A_USE)) cmd->buttons |= BT_USE;
-    for (int w = 0; w < WP_COUNT; w++)
-        if (in.down[PK_1 + w]) cmd->weapon = (uint8_t)(w + 1);
+    cmd->weapon = weapon_tap;
+    weapon_tap = 0;
+    memset(tapped, 0, sizeof tapped);
 }
 
 static void play_events(void)
@@ -438,9 +454,11 @@ static void game_tic(void)
 int main(int argc, char **argv)
 {
     const char *play_path = NULL;
+    int warp = 0;
     for (int i = 1; i + 1 < argc; i++) {
         if (!strcmp(argv[i], "--record")) record_path = argv[++i];
         else if (!strcmp(argv[i], "--playdemo")) play_path = argv[++i];
+        else if (!strcmp(argv[i], "--warp")) warp = clampi(atoi(argv[++i]), 1, NUMLEVELS);
     }
     if (!plat_init("Ironhold")) return 1;
     fixed_init();
@@ -461,6 +479,10 @@ int main(int argc, char **argv)
         free(text);
         playing_demo = 1;
         start_level(demolevel, demoskill, NULL);
+    } else if (warp) {
+        demoskill = SK_MEDIUM;
+        demolevel = warp - 1;
+        start_level(demolevel, demoskill, NULL);
     }
 
     uint64_t start = plat_ticks_us(), tics_done = 0;
@@ -469,7 +491,10 @@ int main(int argc, char **argv)
             running = 0;
             break;
         }
-        if (menu == M_NONE) mouse_acc += in.mouse_dx;
+        if (menu == M_NONE) {
+            mouse_acc += in.mouse_dx;
+            latch_taps();
+        }
 
         uint64_t now_tics = (plat_ticks_us() - start) * TICRATE / 1000000;
         int todo = (int)(now_tics - tics_done);
@@ -503,7 +528,7 @@ int main(int argc, char **argv)
                 }
                 break;
             case GM_FINALE:
-                if (fade > 200 && (in.pressed[PK_RETURN] || in.pressed[PK_ESCAPE])) {
+                if (fade > 250 && (in.pressed[PK_RETURN] || in.pressed[PK_ESCAPE])) {
                     mode = GM_TITLE;
                     play_music("assets/music/title.txt");
                 }
