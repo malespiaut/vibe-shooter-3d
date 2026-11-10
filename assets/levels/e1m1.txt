@@ -1,0 +1,26 @@
+; Legend: walls # W M B G T, X exit switch, D door, R/U/Y red/blue/yellow door, $ secret pushwall
+; P player, g grunt, h stimpack, H medkit, a armor, c clip, s shells, S shotgun,
+; 1/2/3 red/blue/yellow key, l lamp, o pillar, b barrel
+name: OUTPOST GATE
+floor: stone
+ceil: panel
+ambient: 4
+par: 90
+facing: 0
+map:
+################################
+#aH#......#.........#WWWWWWWWWWW
+#..$..l...#....g....#.....g....W
+####......D.........R..........W
+#....P....#..c...c..#..g....l..W
+#.h.......#.........#..........W
+#.........#....g....#.....g...XW
+######D########D####WWWWWWWWWWWW
+#.........#.........############
+#..g......#...g.....############
+#....o....#.........############
+#.c..S....D....o..1.############
+#....o....#.........############
+#.....g...#..g....s.############
+#..h......#.....H...############
+################################

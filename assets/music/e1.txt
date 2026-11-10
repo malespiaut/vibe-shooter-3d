@@ -1,0 +1,24 @@
+; Our tracker format: 16 steps per pattern, one token per step.
+; notes: c4 d#3 ... ; "." = keep playing, "-" = note off. drums: k kick, s snare, h hat, o open hat
+tempo: 138
+pattern A
+bass: e2 . e2 e3 . e2 . d3 e2 . e2 e3 . g2 a2 b2
+lead: . . . . . . . . . . . . . . . .
+pad:  e4 . . . . . . . . . . . . . . -
+drum: k . h . s . h k k . h . s . h h
+pattern B
+bass: e2 . e2 e3 . e2 . d3 e2 . e2 e3 . g2 a2 b2
+lead: b4 . . a4 g4 . e4 . f#4 . g4 . a4 . b4 .
+pad:  g3 . . . . . . . . . . . . . . -
+drum: k . h . s . h k k . h . s . h h
+pattern C
+bass: c3 . c3 c4 . c3 . b2 d3 . d3 d4 . d3 c3 b2
+lead: e5 . d5 . c5 . b4 . a4 . b4 . d5 . . .
+pad:  c4 . . . . . . . d4 . . . . . . -
+drum: k . h . s . h . k . h k s . o .
+pattern D
+bass: e2 . . . . . . . e2 . . . d2 . . .
+lead: e5 . . . . . . . g5 . f#5 . e5 . d5 .
+pad:  b3 . . . . . . . . . . . a3 . . -
+drum: k . . . s . . . k . k . s . s s
+order: A A B B C C B D

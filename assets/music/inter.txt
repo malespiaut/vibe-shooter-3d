@@ -1,0 +1,12 @@
+tempo: 100
+pattern A
+bass: c2 . . c2 . . g1 . c2 . . c2 . . g1 .
+lead: e4 . g4 . c5 . . . d5 . c5 . g4 . . .
+pad:  c4 . . . . . . . . . . . . . . .
+drum: k . h . s . h . k . h k s . h .
+pattern B
+bass: f1 . . f1 . . c2 . g1 . . g1 . . d2 .
+lead: a4 . c5 . f5 . . . d5 . b4 . g4 . . -
+pad:  f3 . . . . . . . g3 . . . . . . .
+drum: k . h . s . h . k . h k s . o .
+order: A B

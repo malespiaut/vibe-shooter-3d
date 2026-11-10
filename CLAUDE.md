@@ -130,13 +130,36 @@ beats feature count.
 ## Build & run
 
 ```sh
-cmake -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build -j
-./build/shooter
-ctest --test-dir build        # determinism + unit tests
+cmake -B build -DCMAKE_BUILD_TYPE=Release            # gcc (default)
+cmake -B build-clang -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang
+cmake --build build -j && cmake --build build-clang -j
+./build/shooter                    # --record FILE / --playdemo FILE (paths relative to the exe dir)
+ctest --test-dir build && ctest --test-dir build-clang
+./build/snapshot LEVEL OUT.ppm [x y angle [tics]]   # headless screenshot
+./build/snapshot --sprites OUT.ppm [first] | --textures OUT.ppm   # art contact sheets
 ```
 
-(Update this section when the build actually exists.)
+- Determinism test replays `assets/demos/demo1.txt`. After an intentional sim change,
+  re-record (drive the game with `--record`) or keep the demo and update `EXPECTED`
+  in `tests/demo_test.c` from `./build/demo_test --print` — only after checking that
+  gcc and clang print the same value.
+- To check on screen without grabbing the desktop: run under `Xvfb :77` with
+  `SDL_AUDIO_DRIVER=dummy`, drive with `xdotool`, capture with `import -window root`.
+
+## Decisions
+
+- Game name: **IRONHOLD**. Episode 1 "The Breach".
+- Renderer: Wolfenstein-style grid raycaster (sliding doors on the tile mid-plane,
+  pushwall secrets, door-frame textures), textured floor/ceiling, 75° FOV, view
+  320x208 + 32px status bar. 32 light levels via colormaps.
+- Palette: 16 ramps x 16 shades generated in `gfx.c`; index 255 = transparent.
+- All art (textures, sprites, weapons) is procedural in `gfx.c`; font hand-drawn in `font.c`.
+- Sim actors use a Doom-like state table (`sdef` in `game.c`): `action` on entry,
+  `think` every tic. `game_t g` holds no pointers, so it can be saved by memcpy.
+- Sim talks to sound only through the `g.snd` event queue (positional mixing in `main.c`).
+- Audio: 22050 Hz stereo; SFX synthesized at startup; music is our text tracker
+  format in `assets/music/*.txt` (4 channels: bass, lead, pad, drums).
+- Levels: text grids in `assets/levels/`; legend at the top of `e1m1.txt`.
 
 ## Workflow
 
