@@ -133,8 +133,9 @@ beats feature count.
 cmake -B build -DCMAKE_BUILD_TYPE=Release            # gcc (default)
 cmake -B build-clang -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang
 cmake --build build -j && cmake --build build-clang -j
-./build/shooter                    # --record FILE / --playdemo FILE (paths relative to the exe dir)
-ctest --test-dir build && ctest --test-dir build-clang
+./build/shooter                    # --warp N / --record FILE / --playdemo FILE (paths relative to the exe dir)
+ctest --test-dir build && ctest --test-dir build-clang   # determinism, levelcheck, soak
+./build/levelcheck assets/levels/*.txt                 # closed maps, door axes, keys before doors, exit reachable
 ./build/snapshot LEVEL OUT.ppm [x y angle [tics]]   # headless screenshot
 ./build/snapshot --sprites OUT.ppm [first] | --textures OUT.ppm   # art contact sheets
 ```
@@ -143,6 +144,9 @@ ctest --test-dir build && ctest --test-dir build-clang
   re-record (drive the game with `--record`) or keep the demo and update `EXPECTED`
   in `tests/demo_test.c` from `./build/demo_test --print` — only after checking that
   gcc and clang print the same value.
+- Sanitizer pass after risky changes:
+  `cmake -B build-asan -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=clang -DCMAKE_C_FLAGS="-fsanitize=address,undefined -fno-sanitize-recover=all -g -O1"`
+  then `./build-asan/soak 3000` (bot plays every level/skill while rendering).
 - To check on screen without grabbing the desktop: run under `Xvfb :77` with
   `SDL_AUDIO_DRIVER=dummy`, drive with `xdotool`, capture with `import -window root`.
 
@@ -159,7 +163,14 @@ ctest --test-dir build && ctest --test-dir build-clang
 - Sim talks to sound only through the `g.snd` event queue (positional mixing in `main.c`).
 - Audio: 22050 Hz stereo; SFX synthesized at startup; music is our text tracker
   format in `assets/music/*.txt` (4 channels: bass, lead, pad, drums).
-- Levels: text grids in `assets/levels/`; legend at the top of `e1m1.txt`.
+- Levels: text grids in `assets/levels/`; legend at the top of `e1m1.txt`. Optional
+  `music:` header and `skill:` overlay grid (1 easy only, 2 medium+, 3 hard only).
+  A level with the Warden (`w`) ends when it dies and needs no exit switch.
+- Weapon refire runs on entry to the last weapon state (Doom-style), skipping its
+  tics: put a weapon's cooldown in the firing state, not the refire state.
+- Save games: header + raw `game_t`; size check rejects other builds; `g_validate()`
+  must accept the state before it goes live. Add new indices to it.
+- Key taps are latched until the next tic (`latch_taps` in main.c).
 
 ## Workflow
 

@@ -266,11 +266,15 @@ static bool save_game(int slot)
 static int menu = M_NONE, sel, waiting_bind = -1;
 static int menu_stack[8], menu_depth;
 
+static char slot_names[NSLOTS][48]; /* read once when a save/load menu opens */
+
 static void open_menu(int m)
 {
     if (menu != M_NONE && menu_depth < 8) menu_stack[menu_depth++] = menu;
     menu = m;
     sel = 0;
+    if (m == M_SAVE || m == M_LOAD)
+        for (int i = 0; i < NSLOTS; i++) slot_name(i, slot_names[i], sizeof slot_names[i]);
 }
 
 static void close_menu(void)
@@ -412,12 +416,8 @@ static void draw_menu(void)
         break;
     }
     case M_SAVE: case M_LOAD: {
-        static char names[NSLOTS][48];
         title = menu == M_SAVE ? "SAVE GAME" : "LOAD GAME";
-        for (int i = 0; i < n; i++) {
-            slot_name(i, names[i], sizeof names[i]);
-            items[i] = names[i];
-        }
+        for (int i = 0; i < n; i++) items[i] = slot_names[i];
         break;
     }
     case M_SKILL: title = "CHOOSE YOUR FATE";
