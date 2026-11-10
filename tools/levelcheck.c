@@ -37,6 +37,11 @@ static int check(const char *path)
                 }
             }
         }
+    /* pillars are permanent and solid: they count as walls for reachability */
+    static uint8_t pillar[MAPH][MAPW];
+    memset(pillar, 0, sizeof pillar);
+    for (int i = 0; i < MAXACTORS; i++)
+        if (g.actors[i].inuse && g.actors[i].type == MT_PILLAR) pillar[g.actors[i].y / FRACUNIT][g.actors[i].x / FRACUNIT] = 1;
     /* flood fill from the start, picking up keys and reopening the search when one unlocks doors */
     static uint8_t seen[MAPH][MAPW];
     int keys = 0, exit_ok = 0, changed = 1;
@@ -52,7 +57,7 @@ static int check(const char *path)
             static const int dx[4] = {1, -1, 0, 0}, dy[4] = {0, 0, 1, -1};
             for (int k = 0; k < 4; k++) {
                 int nx = tx + dx[k], ny = ty + dy[k];
-                if (nx < 0 || ny < 0 || nx >= g.w || ny >= g.h || seen[ny][nx]) continue;
+                if (nx < 0 || ny < 0 || nx >= g.w || ny >= g.h || seen[ny][nx] || pillar[ny][nx]) continue;
                 int tl = g.tile[ny][nx];
                 if (tl == TL_EXIT) exit_ok = 1;
                 if (tl == TL_DOOR) {
@@ -83,7 +88,7 @@ static int check(const char *path)
     int unreachable = 0;
     for (int i = 0; i < MAXACTORS; i++) {
         actor_t *a = &g.actors[i];
-        if (a->inuse && !seen[a->y / FRACUNIT][a->x / FRACUNIT]) {
+        if (a->inuse && a->type != MT_PILLAR && !seen[a->y / FRACUNIT][a->x / FRACUNIT]) {
             printf("%s: thing type %d at %d,%d is unreachable\n", path, a->type, a->x / FRACUNIT, a->y / FRACUNIT);
             unreachable++;
         }
