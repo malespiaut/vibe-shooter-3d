@@ -22,5 +22,5 @@ target_link_libraries(demo_test PRIVATE sim)
 add_test(NAME determinism COMMAND demo_test WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 
 # Dev tool: headless screenshots and art contact sheets.
-add_executable(snapshot tools/snapshot.c src/render.c src/gfx.c src/font.c)
+add_executable(snapshot tools/snapshot.c src/render.c src/gfx.c src/font.c src/sound.c)
 target_link_libraries(snapshot PRIVATE sim m)

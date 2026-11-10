@@ -1,6 +1,7 @@
 /* Headless renderer for checking visuals without a window.
  *   snapshot LEVEL OUT.ppm [x y angle_deg [tics]]   render the view at a tile position
- *   snapshot --sprites OUT.ppm                      contact sheet of all sprites and textures */
+ *   snapshot --sprites OUT.ppm [first] | --textures OUT.ppm   art contact sheets
+ *   snapshot --wav DIR [musicfile]                  each sfx as DIR/sfxN.wav, plus 30 s of music */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -10,8 +11,53 @@
 #include "gfx.h"
 #include "platform.h"
 #include "render.h"
+#include "sound.h"
 
 static uint8_t fb[SCREENW * SCREENH];
+
+/* the mixer locks around the audio thread; there is none here */
+void plat_audio_lock(void) {}
+void plat_audio_unlock(void) {}
+
+static void write_wav(const char *path, const int16_t *s, int frames)
+{
+    FILE *f = fopen(path, "wb");
+    if (!f) exit(1);
+    uint32_t data = (uint32_t)frames * 4, riff = 36 + data, rate = MIXRATE, bps = MIXRATE * 4, fmt = 16;
+    uint16_t pcm = 1, ch = 2, align = 4, bits = 16;
+    fwrite("RIFF", 1, 4, f); fwrite(&riff, 4, 1, f); fwrite("WAVEfmt ", 1, 8, f); fwrite(&fmt, 4, 1, f);
+    fwrite(&pcm, 2, 1, f); fwrite(&ch, 2, 1, f); fwrite(&rate, 4, 1, f); fwrite(&bps, 4, 1, f);
+    fwrite(&align, 2, 1, f); fwrite(&bits, 2, 1, f); fwrite("data", 1, 4, f); fwrite(&data, 4, 1, f);
+    fwrite(s, 4, (size_t)frames, f);
+    fclose(f);
+}
+
+static int dump_audio(const char *dir, const char *music)
+{
+    static int16_t buf[MIXRATE * 2 * 30];
+    char path[512];
+    snd_init();
+    snd_set_volume(15, 0);
+    for (int i = 1; i < SFX_COUNT; i++) {
+        snd_play(i, 255, 128);
+        snd_mix(buf, MIXRATE * 2);
+        snprintf(path, sizeof path, "%s/sfx%02d.wav", dir, i);
+        write_wav(path, buf, MIXRATE * 2);
+    }
+    if (music) {
+        FILE *f = fopen(music, "rb");
+        static char text[65536];
+        if (!f) return 1;
+        text[fread(text, 1, sizeof text - 1, f)] = 0;
+        fclose(f);
+        snd_set_volume(0, 15);
+        snd_music(text);
+        snd_mix(buf, MIXRATE * 30);
+        snprintf(path, sizeof path, "%s/music.wav", dir);
+        write_wav(path, buf, MIXRATE * 30);
+    }
+    return 0;
+}
 
 static void write_ppm(const char *path, const uint8_t *pal)
 {
@@ -36,6 +82,7 @@ int main(int argc, char **argv)
 {
     if (argc < 3) return 1;
     fixed_init();
+    if (!strcmp(argv[1], "--wav")) return dump_audio(argv[2], argc > 3 ? argv[3] : NULL);
     gfx_init();
     if (!strcmp(argv[1], "--sprites")) {
         memset(fb, RAMP(R_PURPLE, 3), sizeof fb);

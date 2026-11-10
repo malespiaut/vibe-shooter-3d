@@ -127,8 +127,8 @@ static void machine(int id, float secs, float hum, float clunk, float gain)
 
 static void make_sfx(void)
 {
-    gunshot(SFX_PISTOL, 0.35f, 14, 7000, 140, 0.9f, 0.85f);
-    gunshot(SFX_SHOTGUN, 0.75f, 6, 5000, 90, 1.4f, 1.0f);
+    gunshot(SFX_PISTOL, 0.4f, 11, 7000, 140, 1.0f, 1.0f);
+    gunshot(SFX_SHOTGUN, 0.8f, 5, 5000, 90, 1.4f, 1.0f);
     gunshot(SFX_ENEMYFIRE, 0.3f, 18, 9000, 200, 0.5f, 0.7f);
     {
         int n;
@@ -147,9 +147,9 @@ static void make_sfx(void)
     voice(SFX_PLAYER_PAIN, 0.28f, 150, 105, 600, 1000, 0.4f, 6, 0.8f);
     voice(SFX_PLAYER_DIE, 1.3f, 170, 45, 550, 950, 0.5f, 9, 0.9f);
     static const float item[] = {880, 1320}, wpn[] = {523, 659, 784, 1046}, sw[] = {440, 660};
-    tones(SFX_ITEM, item, 2, 0.06f, 0.5f);
-    tones(SFX_WPNUP, wpn, 4, 0.07f, 0.5f);
-    tones(SFX_SWITCH, sw, 2, 0.1f, 0.5f);
+    tones(SFX_ITEM, item, 2, 0.06f, 0.3f);
+    tones(SFX_WPNUP, wpn, 4, 0.07f, 0.3f);
+    tones(SFX_SWITCH, sw, 2, 0.1f, 0.3f);
     machine(SFX_DOOR_OPEN, 0.55f, 55, 0, 0.6f);
     machine(SFX_DOOR_CLOSE, 0.55f, 50, 1.2f, 0.7f);
     machine(SFX_PUSHWALL, 1.6f, 35, 0.8f, 0.7f);
@@ -299,7 +299,7 @@ static float music_sample(void)
         }
         out += s * v->env;
     }
-    return out * 0.35f;
+    return out * 0.25f;
 }
 
 /* ---------------------------------------------------------------- mixer */
